@@ -1,0 +1,187 @@
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/lora";
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Theme: CSS Custom Properties ─────────────────────────────────────────── */
+
+:root {
+  /* Backgrounds */
+  --color-bg-base:       #080a08;
+  --color-bg-panel:      #0f110f;
+  --color-bg-surface:    #191b19;
+  --color-bg-elevated:   #28282c;
+  --color-bg-card:       rgba(255, 255, 255, 0.02);
+  --color-bg-card-hover: rgba(255, 255, 255, 0.04);
+  --color-bg-card-elev:  rgba(255, 255, 255, 0.05);
+
+  /* Text */
+  --color-text-primary:   #f7f8f8;
+  --color-text-secondary: #d0d6e0;
+  --color-text-muted:     #8a8f98;
+  --color-text-subtle:    #62666d;
+  --color-text-faint:     #3e3e44;
+
+  /* Borders */
+  --color-border-subtle: rgba(255, 255, 255, 0.05);
+  --color-border-std:    rgba(255, 255, 255, 0.08);
+  --color-border-solid:  #23252a;
+
+  /* Brand (same across themes) */
+  --color-brand:        #3a7d5e;
+  --color-accent:       #52b788;
+  --color-accent-hover: #74c69d;
+
+  /* Logo: white SVG on dark bg — no filter needed */
+  --logo-filter: none;
+}
+
+/* ── Light theme overrides ─────────────────────────────────────────────────── */
+
+[data-theme="light"] {
+  --color-bg-base:       #f4f5f0;
+  --color-bg-panel:      #ffffff;
+  --color-bg-surface:    #ebebeb;
+  --color-bg-elevated:   #e0e1dd;
+  --color-bg-card:       rgba(0, 0, 0, 0.02);
+  --color-bg-card-hover: rgba(0, 0, 0, 0.04);
+  --color-bg-card-elev:  rgba(0, 0, 0, 0.05);
+
+  --color-text-primary:   #0f1011;
+  --color-text-secondary: #28282c;
+  --color-text-muted:     #4a4f57;
+  --color-text-subtle:    #6b7280;
+  --color-text-faint:     #9ca3af;
+
+  --color-border-subtle: rgba(0, 0, 0, 0.07);
+  --color-border-std:    rgba(0, 0, 0, 0.10);
+  --color-border-solid:  #d0d6e0;
+
+  /* Logo: green SVG is visible on both themes — no filter needed */
+  --logo-filter: none;
+
+  --color-brand:        #2d6a4f;
+  --color-accent:       #2d6a4f;
+  --color-accent-hover: #3a7d5e;
+}
+
+/* ── Base styles ───────────────────────────────────────────────────────────── */
+
+@layer base {
+  * {
+    font-feature-settings: "cv01", "ss03";
+    border-color: var(--border);
+    outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
+  }
+
+  html {
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    transition: background-color 0.2s ease, color 0.2s ease;
+    @apply font-sans;
+  }
+
+  body {
+    font-family: "Inter Variable", "SF Pro Display", -apple-system, system-ui,
+      "Segoe UI", Roboto, sans-serif;
+    font-weight: 400;
+    line-height: 1.5;
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+    background-color: var(--color-bg-base);
+    color: var(--color-text-primary);
+  }
+  .theme {
+    --font-heading:       var(--font-sans);
+    --font-sans:       'Geist Variable', sans-serif;
+  }
+  :root {
+    --background:       oklch(1 0 0);
+    --foreground:       oklch(0.145 0 0);
+    --card:       oklch(1 0 0);
+    --card-foreground:       oklch(0.145 0 0);
+    --popover:       oklch(1 0 0);
+    --popover-foreground:       oklch(0.145 0 0);
+    --primary:       oklch(0.205 0 0);
+    --primary-foreground:       oklch(0.985 0 0);
+    --secondary:       oklch(0.97 0 0);
+    --secondary-foreground:       oklch(0.205 0 0);
+    --muted:       oklch(0.97 0 0);
+    --muted-foreground:       oklch(0.556 0 0);
+    --accent:       oklch(0.97 0 0);
+    --accent-foreground:       oklch(0.205 0 0);
+    --destructive:       oklch(0.577 0.245 27.325);
+    --border:       oklch(0.922 0 0);
+    --input:       oklch(0.922 0 0);
+    --ring:       oklch(0.708 0 0);
+    --chart-1:       oklch(0.87 0 0);
+    --chart-2:       oklch(0.556 0 0);
+    --chart-3:       oklch(0.439 0 0);
+    --chart-4:       oklch(0.371 0 0);
+    --chart-5:       oklch(0.269 0 0);
+    --radius:       0.625rem;
+    --sidebar:       oklch(0.985 0 0);
+    --sidebar-foreground:       oklch(0.145 0 0);
+    --sidebar-primary:       oklch(0.205 0 0);
+    --sidebar-primary-foreground:       oklch(0.985 0 0);
+    --sidebar-accent:       oklch(0.97 0 0);
+    --sidebar-accent-foreground:       oklch(0.205 0 0);
+    --sidebar-border:       oklch(0.922 0 0);
+    --sidebar-ring:       oklch(0.708 0 0);
+  }
+  .dark {
+    --background:       oklch(0.145 0 0);
+    --foreground:       oklch(0.985 0 0);
+    --card:       oklch(0.205 0 0);
+    --card-foreground:       oklch(0.985 0 0);
+    --popover:       oklch(0.205 0 0);
+    --popover-foreground:       oklch(0.985 0 0);
+    --primary:       oklch(0.922 0 0);
+    --primary-foreground:       oklch(0.205 0 0);
+    --secondary:       oklch(0.269 0 0);
+    --secondary-foreground:       oklch(0.985 0 0);
+    --muted:       oklch(0.269 0 0);
+    --muted-foreground:       oklch(0.708 0 0);
+    --accent:       oklch(0.269 0 0);
+    --accent-foreground:       oklch(0.985 0 0);
+    --destructive:       oklch(0.704 0.191 22.216);
+    --border:       oklch(1 0 0 / 10%);
+    --input:       oklch(1 0 0 / 15%);
+    --ring:       oklch(0.556 0 0);
+    --chart-1:       oklch(0.87 0 0);
+    --chart-2:       oklch(0.556 0 0);
+    --chart-3:       oklch(0.439 0 0);
+    --chart-4:       oklch(0.371 0 0);
+    --chart-5:       oklch(0.269 0 0);
+    --sidebar:       oklch(0.205 0 0);
+    --sidebar-foreground:       oklch(0.985 0 0);
+    --sidebar-primary:       oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground:       oklch(0.985 0 0);
+    --sidebar-accent:       oklch(0.269 0 0);
+    --sidebar-accent-foreground:       oklch(0.985 0 0);
+    --sidebar-border:       oklch(1 0 0 / 10%);
+    --sidebar-ring:       oklch(0.556 0 0);
+  }
+}
+
+/* ── Animations ────────────────────────────────────────────────────────────── */
+
+@keyframes dropdown-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── CSS utility shortcuts ─────────────────────────────────────────────────── */
+
+@layer utilities {
+  .bg-card          { background-color: var(--color-bg-card); }
+  .bg-card-hover    { background-color: var(--color-bg-card-hover); }
+  .bg-card-elevated { background-color: var(--color-bg-card-elev); }
+  .border-subtle    { border-color: var(--color-border-subtle); }
+  .border-standard  { border-color: var(--color-border-std); }
+}

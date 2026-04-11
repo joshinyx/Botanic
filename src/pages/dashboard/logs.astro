@@ -1,0 +1,107 @@
+---
+import Admin from "@/layouts/Admin.astro";
+import { requireDashboardAuth } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import type { ActionLog } from "@/types";
+
+const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
+if (!staff) return Astro.redirect("/");
+
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+
+const page = Number(Astro.url.searchParams.get("page") ?? "1");
+const perPage = 50;
+const from = (page - 1) * perPage;
+const to = from + perPage - 1;
+
+// Join with users table instead of staff_users
+const { data: logs, count } = await supabase
+  .from("action_logs")
+  .select("*, users(username, email)", { count: "exact" })
+  .order("created_at", { ascending: false })
+  .range(from, to);
+
+type LogWithUser = ActionLog & { users: { username: string; email: string } | null };
+const logList = (logs ?? []) as LogWithUser[];
+const totalPages = Math.ceil((count ?? 0) / perPage);
+
+const ACTION_COLORS: Record<string, string> = {
+  approve:        "#4ade80",
+  reject:         "#f87171",
+  edit:           "#60a5fa",
+  delete:         "#f87171",
+  restore:        "#fbbf24",
+  assign_role:    "#c084fc",
+  revoke_role:    "#f87171",
+  change_role:    "#60a5fa",
+  edit_content:   "var(--color-text-subtle)",
+  upsert_content: "var(--color-text-subtle)",
+};
+---
+
+<Admin title="Action Logs">
+  <div class="mb-6">
+    <h2 class="text-[20px] tracking-[-0.24px]"
+        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+      Action Logs
+    </h2>
+    <p class="text-sm mt-1" style="color:var(--color-text-faint)">{count ?? 0} total entries</p>
+  </div>
+
+  <div class="rounded-card overflow-hidden" style="border:1px solid var(--color-border-std)">
+    {logList.length === 0 ? (
+      <p class="text-sm text-center py-10" style="font-weight:510; color:var(--color-text-faint)">No logs yet</p>
+    ) : (
+      <table class="w-full">
+        <thead>
+          <tr style="border-bottom:1px solid var(--color-border-subtle); background:var(--color-bg-card-elev)">
+            {["Action", "Entity", "User", "Date"].map((h) => (
+              <th class="px-4 py-2.5 text-left text-xs" style="font-weight:510; color:var(--color-text-faint)">{h}</th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {logList.map((log) => (
+            <tr class="transition-colors" style="border-bottom:1px solid var(--color-border-subtle)">
+              <td class="px-4 py-3">
+                <span class="text-xs px-2 py-0.5 rounded-full"
+                      style={`color:${ACTION_COLORS[log.action] ?? "var(--color-text-subtle)"}; background:${ACTION_COLORS[log.action] ? ACTION_COLORS[log.action] + "18" : "var(--color-bg-card-elev)"}; font-weight:510`}>
+                  {log.action}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{log.entity_type}</span>
+                <span class="text-xs ml-1 font-mono" style="color:var(--color-text-faint)">{log.entity_id.slice(0, 8)}…</span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="text-xs" style="color:var(--color-text-faint)">
+                  {log.users ? `@${log.users.username}` : log.user_id.slice(0, 12) + "…"}
+                </span>
+              </td>
+              <td class="px-4 py-3">
+                <span class="text-xs" style="color:var(--color-text-faint)">
+                  {new Date(log.created_at).toLocaleDateString("en-US", {
+                    month: "short", day: "numeric",
+                    hour: "2-digit", minute: "2-digit",
+                  })}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    )}
+  </div>
+
+  {totalPages > 1 && (
+    <div class="flex items-center justify-center gap-2 mt-5">
+      {Array.from({ length: totalPages }, (_, i) => i + 1).map((p) => (
+        <a href={`/dashboard/logs?page=${p}`}
+           class="w-8 h-8 rounded flex items-center justify-center text-xs transition-colors"
+           style={`font-weight:510; background:${p === page ? "var(--color-bg-card-elev)" : "var(--color-bg-card)"}; color:${p === page ? "var(--color-text-primary)" : "var(--color-text-faint)"}; border:1px solid var(--color-border-subtle)`}>
+          {p}
+        </a>
+      ))}
+    </div>
+  )}
+</Admin>

@@ -1,0 +1,61 @@
+---
+import "../styles/global.css";
+import { getLang } from "@/lib/i18n";
+import type { Lang } from "@/lib/i18n";
+
+interface Props {
+  title: string;
+  description?: string;
+}
+
+const { title, description = "Botanic — Explore the plant world" } = Astro.props;
+const lang: Lang = getLang(Astro.cookies);
+const year = new Date().getFullYear();
+---
+
+<!doctype html>
+<html lang={lang}>
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content={description} />
+    <link rel="icon" type="image/svg+xml" href="/images/favicon.svg" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap"
+      rel="stylesheet"
+    />
+    <title>{title} — Botanic</title>
+
+    <!-- Theme init: runs synchronously before first paint to avoid FOUC -->
+    <script is:inline>
+      (function () {
+        var saved = localStorage.getItem("bc_theme");
+        var theme = saved === "light" ? "light" : "dark";
+        document.documentElement.dataset.theme = theme;
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen flex flex-col">
+    <div class="flex-1">
+      <slot />
+    </div>
+
+    <footer class="border-t mt-auto"
+            style="background:var(--color-bg-panel); border-color:var(--color-border-subtle)">
+      <div class="max-w-[1200px] mx-auto px-6 h-11 flex items-center justify-between">
+        <span class="text-xs" style="color:var(--color-text-faint); font-feature-settings:'cv01','ss03'">
+          © {year} Botanic
+        </span>
+        <span class="text-xs" style="color:var(--color-text-faint); font-feature-settings:'cv01','ss03'">
+          Hecho por <a href="/user/josh"
+             class="transition-colors hover:opacity-80"
+             style="color:var(--color-text-subtle); font-weight:510">
+            @joshiny
+          </a>
+        </span>
+      </div>
+    </footer>
+  </body>
+</html>

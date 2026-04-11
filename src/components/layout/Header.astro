@@ -1,0 +1,65 @@
+---
+import { getSession } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
+import ThemeToggle from "@/components/islands/ThemeToggle";
+import LanguageSwitcher from "@/components/islands/LanguageSwitcher";
+import UserDropdown from "@/components/islands/UserDropdown";
+import NotificationBell from "@/components/islands/NotificationBell";
+
+const session = await getSession(Astro.cookies, Astro.request);
+const lang = getLang(Astro.cookies);
+let username: string | null = null;
+let userRole: string | null = null;
+let userName: string | null = null;
+let userAvatarUrl: string | null = null;
+
+if (session) {
+  const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+  const { data } = await supabase
+    .from("users")
+    .select("username, role, name, avatar_url")
+    .eq("id", session.id)
+    .maybeSingle();
+  // Fall back to user_metadata if DB row is missing (e.g. schema cache stale)
+  username = data?.username ?? (session.user_metadata?.username as string | undefined) ?? null;
+  userRole = data?.role ?? null;
+  userName = data?.name ?? null;
+  userAvatarUrl = data?.avatar_url ?? null;
+}
+
+const currentPath = Astro.url.pathname;
+---
+
+<header
+  class="sticky top-0 z-50 border-b"
+  style="background:var(--color-bg-panel); border-color:var(--color-border-subtle)"
+>
+  <div class="max-w-[1200px] mx-auto px-6 h-12 flex items-center gap-6">
+    <!-- Brand -->
+    <a href="/" class="shrink-0 transition-opacity hover:opacity-75">
+      <img src="/images/botanic.svg" alt="BotanicCatalog"
+           width="22" height="23"
+           style="display:block; filter:var(--logo-filter)" />
+    </a>
+
+    <!-- Controls + Actions -->
+    <div class="flex items-center gap-2 ml-auto">
+      <ThemeToggle client:load />
+      <LanguageSwitcher client:load currentLang={lang} />
+
+      {session ? (
+        <>
+          <NotificationBell client:load />
+          <UserDropdown client:load username={username ?? ""} name={userName ?? ""} avatarUrl={userAvatarUrl} lang={lang} role={userRole} />
+        </>
+      ) : (
+        <a href="/auth/login"
+           class="px-3 py-1.5 rounded text-xs text-white transition-colors"
+           style="background:var(--color-brand); font-weight:510; font-feature-settings:'cv01','ss03'">
+          {t("nav.signin", lang)}
+        </a>
+      )}
+    </div>
+  </div>
+</header>

@@ -1,0 +1,171 @@
+---
+import Base from "@/layouts/Base.astro";
+import Header from "@/components/layout/Header.astro";
+import QRDownload from "@/components/islands/QRDownload";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { generateQRDataURL } from "@/lib/qr";
+import { getLang, t } from "@/lib/i18n";
+import type { Plant, UserProfile } from "@/types";
+
+const { id } = Astro.params;
+if (!id) return Astro.redirect("/");
+
+const lang = getLang(Astro.cookies);
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+
+const { data: plant } = await supabase
+  .from("plants")
+  .select("*, users(id, username, name)")
+  .eq("id", id)
+  .eq("status", "approved")
+  .maybeSingle();
+
+if (!plant) return Astro.redirect("/");
+
+type PlantFull = Plant & { users: Pick<UserProfile, "username" | "name"> | null };
+const p = plant as PlantFull;
+
+const baseUrl = import.meta.env.PUBLIC_BASE_URL;
+const qrDataUrl = await generateQRDataURL(id, baseUrl);
+
+const climateColors: Record<string, string> = {
+  tropical: "#4ade80", arid: "#fbbf24", temperate: "#60a5fa",
+  continental: "#c084fc", polar: "#94a3b8", mediterranean: "#fb923c",
+};
+const climateBg: Record<string, string> = {
+  tropical: "rgba(74,222,128,0.12)", arid: "rgba(251,191,36,0.12)", temperate: "rgba(96,165,250,0.12)",
+  continental: "rgba(192,132,252,0.12)", polar: "rgba(148,163,184,0.12)", mediterranean: "rgba(251,146,60,0.12)",
+};
+---
+
+<Base title={p.name} description={p.description}>
+  <Header />
+  <main class="max-w-[1200px] mx-auto px-6 py-10">
+
+    <a href="/" class="inline-flex items-center gap-1.5 text-xs mb-8 transition-colors"
+       style="font-weight:510; color:var(--color-text-subtle)">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+      {t("plant.back", lang)}
+    </a>
+
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
+      <!-- Left: image + info -->
+      <div class="space-y-6">
+        <!-- Square image -->
+        <div class="rounded-panel overflow-hidden"
+             style="aspect-ratio:1/1; border:1px solid var(--color-border-std)">
+          <img src={p.image_url} alt={p.name} class="w-full h-full object-cover" />
+        </div>
+
+        <div>
+          <h1 class="text-[32px] leading-tight mb-3"
+              style="font-family:'Lora Variable', Georgia, serif; font-weight:600; letter-spacing:-0.3px; color:var(--color-text-primary)">
+            {p.name}
+          </h1>
+          <div class="flex flex-wrap items-center gap-2 mb-5">
+            <span class="px-2.5 py-1 rounded-full text-xs"
+                  style={`background:${climateBg[p.climate] ?? "var(--color-bg-card-elev)"}; color:${climateColors[p.climate] ?? "var(--color-text-muted)"}; font-weight:510`}>
+              {p.climate}
+            </span>
+            <span class="px-2.5 py-1 rounded-full text-xs"
+                  style="background:var(--color-bg-card-elev); color:var(--color-text-muted); font-weight:510">
+              {p.duration}
+            </span>
+            <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">
+              {p.origin_country}
+            </span>
+          </div>
+          <p class="text-[16px] leading-relaxed" style="color:var(--color-text-secondary)">
+            {p.description}
+          </p>
+        </div>
+
+        {p.tags.length > 0 && (
+          <div>
+            <p class="text-xs mb-2 uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
+              {t("plant.tags", lang)}
+            </p>
+            <div class="flex flex-wrap gap-1.5">
+              {p.tags.map((tag) => (
+                <a href={`/?tags=${tag}`}
+                   class="px-2.5 py-1 rounded-full text-xs transition-colors"
+                   style="border:1px solid var(--color-border-std); font-weight:510; color:var(--color-text-muted)">
+                  {tag}
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {p.users && (
+          <div class="flex items-center gap-3 p-4 rounded-card"
+               style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
+                 style="background:rgba(58,125,94,0.15); border:1px solid rgba(58,125,94,0.25)">
+              <span class="text-xs" style="font-weight:590; color:#52b788">
+                {p.users.name.charAt(0).toUpperCase()}
+              </span>
+            </div>
+            <div>
+              <p class="text-xs" style="color:var(--color-text-subtle)">{t("plant.submittedBy", lang)}</p>
+              <a href={`/user/${p.users.username}`} class="text-sm transition-colors"
+                 style="font-weight:510; color:var(--color-text-secondary)">
+                @{p.users.username}
+              </a>
+            </div>
+          </div>
+        )}
+      </div>
+
+      <!-- Right: details + QR -->
+      <div class="space-y-4">
+        <!-- Details table -->
+        <div class="rounded-panel p-5 space-y-3"
+             style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
+          <p class="text-xs uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
+            {t("plant.details", lang)}
+          </p>
+          {[
+            { label: t("plant.origin",   lang), value: p.origin_country },
+            { label: t("plant.climate",  lang), value: p.climate },
+            { label: t("plant.duration", lang), value: p.duration },
+          ].map(({ label, value }) => (
+            <div class="flex items-center justify-between py-2 border-b"
+                 style="border-color:var(--color-border-subtle)">
+              <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{label}</span>
+              <span class="text-xs capitalize" style="font-weight:510; color:var(--color-text-secondary)">{value}</span>
+            </div>
+          ))}
+          <div class="flex items-center justify-between py-2">
+            <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{t("plant.added", lang)}</span>
+            <span class="text-xs" style="font-weight:510; color:var(--color-text-secondary)">
+              {new Date(p.created_at).toLocaleDateString(lang === "es" ? "es-ES" : "en-US", {
+                year: "numeric", month: "short", day: "numeric",
+              })}
+            </span>
+          </div>
+        </div>
+
+        <!-- QR compact -->
+        <div class="rounded-panel p-4" style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
+          <div class="flex items-center gap-4">
+            <div class="shrink-0 p-2 rounded-card" style="background:var(--color-bg-panel); border:1px solid var(--color-border-subtle)">
+              <img src={qrDataUrl} alt={`QR ${p.name}`} width="80" height="80" class="rounded-sm block" />
+            </div>
+            <div class="min-w-0">
+              <p class="text-xs mb-0.5 uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
+                {t("plant.qr.title", lang)}
+              </p>
+              <p class="text-[11px] mb-3 leading-relaxed" style="color:var(--color-text-muted)">
+                {t("plant.qr.scan", lang)}
+              </p>
+              <QRDownload client:load plantId={id} plantName={p.name} />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</Base>

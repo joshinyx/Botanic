@@ -1,0 +1,133 @@
+---
+import Base from "@/layouts/Base.astro";
+import Header from "@/components/layout/Header.astro";
+import SearchFilters from "@/components/islands/SearchFilters";
+import PlantGrid from "@/components/islands/PlantGrid";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
+import type { Plant, UserProfile } from "@/types";
+
+const lang = getLang(Astro.cookies);
+const url = Astro.url;
+const filterName     = url.searchParams.get("name") ?? "";
+const filterTags     = url.searchParams.get("tags")?.split(",").filter(Boolean) ?? [];
+const filterCountry  = url.searchParams.get("country") ?? "";
+const filterClimate  = url.searchParams.get("climate") ?? "";
+const filterDuration = url.searchParams.get("duration") ?? "";
+const filterAuthor   = url.searchParams.get("author") ?? "";
+
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+
+let query = supabase
+  .from("plants")
+  .select("*, users(username, name)")
+  .eq("status", "approved")
+  .order("created_at", { ascending: false });
+
+if (filterName)     query = query.ilike("name", `%${filterName}%`);
+if (filterCountry)  query = query.eq("origin_country", filterCountry);
+if (filterClimate)  query = query.eq("climate", filterClimate);
+if (filterDuration) query = query.eq("duration", filterDuration);
+if (filterTags.length > 0) query = query.contains("tags", filterTags);
+if (filterAuthor) {
+  const { data: authorUser } = await supabase
+    .from("users").select("id").eq("username", filterAuthor).maybeSingle();
+  query = query.eq("user_id", authorUser?.id ?? "00000000-0000-0000-0000-000000000000");
+}
+
+const { data: plants } = await query.limit(120);
+
+type PlantWithUser = Plant & { users: Pick<UserProfile, "username" | "name"> | null };
+const plantList: PlantWithUser[] = (plants ?? []) as PlantWithUser[];
+
+const { data: countryRows, count: totalCount } = await supabase
+  .from("plants")
+  .select("origin_country", { count: "exact" })
+  .eq("status", "approved");
+
+const countries = [...new Set((countryRows ?? []).map((r) => r.origin_country as string))].sort();
+const hasFilters = filterName || filterTags.length || filterCountry || filterClimate || filterDuration || filterAuthor;
+
+const countLabel = plantList.length === 1
+  ? `1 ${t("home.count.one", lang)}`
+  : `${plantList.length} ${t("home.count.other", lang)}`;
+---
+
+<Base title={t("home.title", lang)}>
+  <Header />
+
+  <!-- Radial glow behind hero — full width, fuera del max-w container -->
+  <div aria-hidden="true" style="
+    position:fixed; inset:0; pointer-events:none; z-index:0;
+    background: radial-gradient(ellipse 70% 40% at 50% 0%, rgba(58,125,94,0.09) 0%, transparent 70%);
+  "></div>
+
+  <main class="max-w-[1200px] mx-auto px-6" style="position:relative; z-index:1">
+
+    <!-- Hero -->
+    <div class="text-center py-12 md:py-16" style="position:relative">
+
+      <!-- Botanical leaf pattern — SVG inline como data URI, muy baja opacidad -->
+      <div aria-hidden="true" style="
+        position:absolute; inset:-40px -80px; pointer-events:none; z-index:0;
+        background-image: url(&quot;data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160' viewBox='0 0 160 160'%3E%3Cg fill='none' stroke='%2352b788' stroke-width='1' opacity='0.18'%3E%3C!-- Hoja izquierda --%3E%3Cpath d='M20 80 Q35 55 55 60 Q40 75 20 80Z'/%3E%3Cpath d='M20 80 Q38 68 55 60'/%3E%3C!-- Rama central --%3E%3Cpath d='M20 80 Q60 78 90 60'/%3E%3C!-- Hoja derecha superior --%3E%3Cpath d='M90 60 Q105 38 125 42 Q110 58 90 60Z'/%3E%3Cpath d='M90 60 Q108 46 125 42'/%3E%3C!-- Hoja pequeña --%3E%3Cpath d='M55 60 Q62 45 75 48 Q66 57 55 60Z'/%3E%3C!-- Ramita inferior --%3E%3Cpath d='M60 100 Q80 95 95 105'/%3E%3Cpath d='M95 105 Q105 90 118 93 Q106 103 95 105Z'/%3E%3C/g%3E%3C/svg%3E&quot;);
+        background-size: 160px 160px;
+        opacity: 0.4;
+      "></div>
+      <h1 class="text-[36px] md:text-[48px] leading-tight mb-3"
+          style="position:relative; z-index:1; font-family:'Lora Variable', Georgia, serif; font-weight:600; letter-spacing:-0.5px; color:var(--color-text-primary)">
+        {t("home.title", lang)}
+      </h1>
+      <p class="text-[16px] leading-relaxed max-w-md mx-auto mb-7"
+         style="position:relative; z-index:1; color:var(--color-text-muted)">
+        {t("home.hero.desc", lang)}
+      </p>
+      <a href="/plants/submit"
+         class="inline-flex items-center px-5 py-2.5 rounded text-sm text-white transition-colors"
+         style="position:relative; z-index:1; background:var(--color-brand); font-weight:510; font-feature-settings:'cv01','ss03'">
+        {t("home.hero.cta", lang)}
+      </a>
+
+      {totalCount !== null && totalCount > 0 && (
+        <p class="mt-4 text-xs" style="position:relative; z-index:1; color:var(--color-text-subtle)">
+          <span style="color:var(--color-accent); font-weight:510">{totalCount}</span>
+          {" "}{totalCount === 1 ? t("home.count.one", lang) : t("home.count.other", lang)}{" "}
+          {t("home.hero.catalogued", lang)}
+        </p>
+      )}
+    </div>
+
+    <div class="mb-8">
+      <SearchFilters
+        client:load
+        lang={lang}
+        initialName={filterName}
+        initialTags={filterTags}
+        initialCountry={filterCountry}
+        initialClimate={filterClimate}
+        initialDuration={filterDuration}
+        initialAuthor={filterAuthor}
+        countries={countries}
+      />
+    </div>
+
+    <div class="flex items-center justify-between mb-5">
+      <p class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">
+        {plantList.length === 0 ? t("home.empty.title", lang) : countLabel}
+        {hasFilters && <span style="color:var(--color-accent)">{" "}{t("home.filtered", lang)}</span>}
+      </p>
+    </div>
+
+    <PlantGrid
+      client:load
+      initialPlants={plantList}
+      initialHasFilters={!!hasFilters}
+      lang={lang}
+      emptyTitle={t("home.empty.title", lang)}
+      emptyFilters={t("home.empty.filters", lang)}
+      emptyFirst={t("home.empty.first", lang)}
+      clearLabel={t("home.clear", lang)}
+      submittedByLabel={t("plant.submittedBy", lang)}
+    />
+  </main>
+</Base>

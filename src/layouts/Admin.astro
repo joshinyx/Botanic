@@ -1,0 +1,71 @@
+---
+import "../styles/global.css";
+
+interface Props {
+  title: string;
+}
+
+const { title } = Astro.props;
+
+const navLinks = [
+  { href: "/dashboard",         label: "Submissions" },
+  { href: "/dashboard/staff",   label: "Staff Users" },
+  { href: "/dashboard/logs",    label: "Action Logs" },
+  { href: "/dashboard/content", label: "Content" },
+];
+
+const currentPath = Astro.url.pathname;
+---
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
+    <title>{title} — Admin</title>
+    <script is:inline>
+      (function(){
+        var t=localStorage.getItem("bc_theme");
+        document.documentElement.dataset.theme=t==="light"?"light":"dark";
+      })();
+    </script>
+  </head>
+  <body class="min-h-screen flex" style="background:var(--color-bg-base); color:var(--color-text-primary)">
+    <!-- Sidebar -->
+    <aside class="w-56 shrink-0 flex flex-col min-h-screen"
+           style="background:var(--color-bg-panel); border-right:1px solid var(--color-border-subtle)">
+      <div class="px-4 py-5" style="border-bottom:1px solid var(--color-border-subtle)">
+        <a href="/" class="text-sm" style="font-weight:510; color:var(--color-text-primary)">
+          BotanicCatalog
+        </a>
+        <p class="text-xs mt-0.5" style="color:var(--color-text-faint)">Admin Panel</p>
+      </div>
+      <nav class="flex-1 px-2 py-4 space-y-0.5">
+        {navLinks.map((link) => (
+          <a href={link.href}
+             class="block px-3 py-2 rounded text-sm transition-colors"
+             style={`font-weight:510; color:${currentPath === link.href ? "var(--color-text-primary)" : "var(--color-text-subtle)"}; background:${currentPath === link.href ? "var(--color-bg-card-elev)" : "transparent"}`}>
+            {link.label}
+          </a>
+        ))}
+      </nav>
+      <div class="px-4 py-4" style="border-top:1px solid var(--color-border-subtle)">
+        <form method="POST" action="/api/auth/logout">
+          <button type="submit" class="text-xs transition-colors"
+                  style="color:var(--color-text-faint)">
+            Sign out
+          </button>
+        </form>
+      </div>
+    </aside>
+
+    <!-- Main content -->
+    <main class="flex-1 min-h-screen overflow-auto">
+      <div class="max-w-5xl mx-auto px-6 py-8">
+        <slot />
+      </div>
+    </main>
+  </body>
+</html>

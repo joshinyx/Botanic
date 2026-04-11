@@ -1,0 +1,129 @@
+---
+import type { Plant, UserProfile } from "@/types";
+import { t, type Lang } from "@/lib/i18n";
+
+interface Props {
+  plant: Plant & { users: Pick<UserProfile, "username" | "name"> | null };
+  lang?: Lang;
+}
+
+const { plant, lang = "es" } = Astro.props;
+
+const climateColors: Record<string, string> = {
+  tropical:      "#4ade80",
+  arid:          "#fbbf24",
+  temperate:     "#60a5fa",
+  continental:   "#c084fc",
+  polar:         "#94a3b8",
+  mediterranean: "#fb923c",
+};
+
+const climateBg: Record<string, string> = {
+  tropical:      "rgba(74,222,128,0.15)",
+  arid:          "rgba(251,191,36,0.15)",
+  temperate:     "rgba(96,165,250,0.15)",
+  continental:   "rgba(192,132,252,0.15)",
+  polar:         "rgba(148,163,184,0.15)",
+  mediterranean: "rgba(251,146,60,0.15)",
+};
+---
+
+<a
+  href={`/plants/${plant.id}`}
+  class="pc group block rounded-card border overflow-hidden"
+  style="background:var(--color-bg-card); border-color:var(--color-border-std)"
+>
+  <!-- Square image -->
+  <div class="relative overflow-hidden" style="aspect-ratio:1/1; background:var(--color-bg-surface)">
+    <img
+      src={plant.image_url}
+      alt={plant.name}
+      class="w-full h-full object-cover"
+      style="transition: transform 0.5s ease"
+      loading="lazy"
+    />
+
+    <!-- Country badge — always visible, top right -->
+    <span class="pc__badge absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full text-white"
+          style="background:rgba(0,0,0,0.55); font-weight:510; letter-spacing:0.01em">
+      {plant.origin_country}
+    </span>
+
+    <!-- Hover overlay: gradient + name + pills -->
+    <div class="pc__overlay absolute inset-0 flex flex-col justify-end p-3"
+         style="background:linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 50%, transparent 80%)">
+      <p class="text-[14px] leading-tight text-white mb-2"
+         style="font-weight:590; font-feature-settings:'cv01','ss03'">
+        {plant.name}
+      </p>
+      <div class="flex items-center gap-1.5 flex-wrap">
+        <span class="text-[11px] px-2 py-0.5 rounded-full"
+              style={`background:${climateBg[plant.climate] ?? "rgba(255,255,255,0.15)"}; color:${climateColors[plant.climate] ?? "#fff"}; font-weight:510`}>
+          {plant.climate}
+        </span>
+        <span class="text-[11px] px-2 py-0.5 rounded-full"
+              style="background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); font-weight:510">
+          {plant.duration}
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Content -->
+  <div class="p-3">
+    <h3 class="text-[13px] tracking-[-0.1px] mb-1.5 truncate"
+        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+      {plant.name}
+    </h3>
+
+    {plant.tags.length > 0 && (
+      <div class="flex flex-wrap gap-1 mb-2">
+        {plant.tags.slice(0, 2).map((tag) => (
+          <span class="px-1.5 py-0.5 rounded-micro text-[10px]"
+                style="background:var(--color-bg-card-hover); border:1px solid var(--color-border-subtle); color:var(--color-text-subtle); font-weight:510">
+            {tag}
+          </span>
+        ))}
+        {plant.tags.length > 2 && (
+          <span class="px-1.5 py-0.5 rounded-micro text-[10px]"
+                style="background:var(--color-bg-card-hover); border:1px solid var(--color-border-subtle); color:var(--color-text-subtle)">
+            +{plant.tags.length - 2}
+          </span>
+        )}
+      </div>
+    )}
+
+    {plant.users && (
+      <p class="text-[11px]" style="color:var(--color-text-subtle)">
+        <a href={`/user/${plant.users.username}`}
+           class="transition-colors"
+           style="color:var(--color-text-muted); font-weight:510"
+           onclick="(function(e){e.stopPropagation()})(event)">
+          @{plant.users.username}
+        </a>
+      </p>
+    )}
+  </div>
+</a>
+
+<style>
+  .pc {
+    transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
+  }
+  .pc:hover {
+    border-color: rgba(58, 125, 94, 0.45);
+    transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+  }
+  .pc:hover img {
+    transform: scale(1.05);
+  }
+  /* Overlay hidden by default, visible on hover */
+  .pc__overlay {
+    opacity: 0;
+    transition: opacity 0.25s ease;
+  }
+  .pc:hover .pc__overlay {
+    opacity: 1;
+  }
+</style>

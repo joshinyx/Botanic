@@ -1,0 +1,34 @@
+---
+import Admin from "@/layouts/Admin.astro";
+import DashboardStaff from "@/components/islands/DashboardStaff";
+import { requireDashboardAuth } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import type { StaffEntry } from "@/types";
+
+const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
+if (!staff) return Astro.redirect("/");
+if (staff.role !== "super_admin") return Astro.redirect("/dashboard");
+
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+const { data } = await supabase
+  .from("users")
+  .select("id, name, username, email, role, created_at")
+  .not("role", "is", null)
+  .order("created_at", { ascending: true });
+
+const staffList = (data ?? []) as StaffEntry[];
+---
+
+<Admin title="Staff Users">
+  <div class="mb-6">
+    <h2 class="text-[20px] tracking-[-0.24px]"
+        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+      Staff Users
+    </h2>
+    <p class="text-sm mt-1" style="color:var(--color-text-faint)">
+      Grant or revoke dashboard access for existing users
+    </p>
+  </div>
+
+  <DashboardStaff client:load initialStaff={staffList} currentUserId={staff.id} />
+</Admin>

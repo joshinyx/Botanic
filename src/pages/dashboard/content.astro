@@ -1,0 +1,34 @@
+---
+import Admin from "@/layouts/Admin.astro";
+import AdminContent from "@/components/islands/AdminContent";
+import { requireDashboardAuth } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import type { ContentEntry } from "@/types";
+
+const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
+if (!staff) return Astro.redirect("/");
+
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+const { data } = await supabase
+  .from("content")
+  .select("*")
+  .order("key", { ascending: true })
+  .order("lang", { ascending: true });
+
+const entries = (data ?? []) as ContentEntry[];
+const langs = [...new Set(entries.map((e) => e.lang))].sort();
+---
+
+<Admin title="Content">
+  <div class="mb-6">
+    <h2 class="text-[20px] tracking-[-0.24px]"
+        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+      Content
+    </h2>
+    <p class="text-sm mt-1" style="color:var(--color-text-faint)">
+      Editable texts with multi-language support. Fallback language: <span style="color:var(--color-text-subtle)">es</span>
+    </p>
+  </div>
+
+  <AdminContent client:load initialEntries={entries} langs={langs} />
+</Admin>
