@@ -361,7 +361,7 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
       {open && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center p-4"
-          style={{ background: "rgba(0,0,0,0.78)", backdropFilter: "blur(4px)" }}
+          style={{ background: "rgba(0,0,0,0.78)", backdropFilter: "blur(4px)", WebkitBackdropFilter: "blur(4px)" }}
           onClick={() => setOpen(false)}
         >
           <div
@@ -439,8 +439,8 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
                                 outline: presetIdx === i ? "2px solid #60a5fa" : "2px solid transparent",
                                 outlineOffset: "2px",
                               }}>
-                        <span style={{ position: "absolute", inset: 0, left: 0, top: 0, width: "50%", background: p.dark }} />
-                        <span style={{ position: "absolute", inset: 0, left: "50%", top: 0, width: "50%", background: p.light }} />
+                        <span style={{ position: "absolute", left: 0, top: 0, bottom: 0, width: "50%", background: p.dark }} />
+                        <span style={{ position: "absolute", right: 0, top: 0, bottom: 0, width: "50%", background: p.light }} />
                       </button>
                     ))}
 
@@ -479,8 +479,12 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
                         background: withLogo ? "rgba(96,165,250,0.75)" : "rgba(255,255,255,0.1)",
                       }}
                     >
-                      <span className="absolute top-0.5 w-4 h-4 rounded-full bg-white transition-all"
-                            style={{ left: withLogo ? "17px" : "2px", boxShadow: "0 1px 3px rgba(0,0,0,0.3)" }} />
+                      <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white"
+                            style={{
+                              transform: withLogo ? "translateX(16px)" : "translateX(0)",
+                              transition: "transform 0.18s cubic-bezier(0.16,1,0.3,1)",
+                              boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                            }} />
                     </button>
                     <span className="text-xs" style={{ fontWeight: 510, color: "var(--color-text-secondary)" }}>
                       Logo en el centro del QR
