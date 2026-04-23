@@ -1,7 +1,7 @@
 ---
 import Base from "@/layouts/Base.astro";
 import Header from "@/components/layout/Header.astro";
-import QRDownload from "@/components/islands/QRDownload";
+import QRStudio from "@/components/islands/QRStudio";
 import PlantImageCarousel from "@/components/islands/PlantImageCarousel";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { generateQRDataURL } from "@/lib/qr";
@@ -167,7 +167,7 @@ const climateBg: Record<string, string> = {
               <p class="text-[11px] mb-3 leading-relaxed" style="color:var(--color-text-muted)">
                 {t("plant.qr.scan", lang)}
               </p>
-              <QRDownload client:load plantId={id} plantName={p.name} />
+              <QRStudio client:load plantId={id} plantName={p.name} climate={p.climate} origin={p.origin_country} />
             </div>
           </div>
         </div>
