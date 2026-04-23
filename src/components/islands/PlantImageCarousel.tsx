@@ -31,20 +31,15 @@ export default function PlantImageCarousel({ images }: Props) {
     <div>
       <div style={{
         position: "relative",
-        aspectRatio: "1 / 1",
         borderRadius: 10,
         overflow: "hidden",
         border: "1px solid var(--color-border-std)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        background: "var(--color-bg-card)",
       }}>
         <img
           key={idx}
           src={images[idx].src}
           alt={images[idx].alt}
-          style={{ width: "100%", height: "100%", objectFit: "contain", display: "block" }}
+          style={{ width: "100%", height: "auto", display: "block" }}
         />
 
         {multi && idx > 0 && (
