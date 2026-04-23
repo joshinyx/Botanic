@@ -40,7 +40,7 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: "Password is too long" }), { status: 400 });
 
   // Username format
-  if (!/^[a-z0-9_]{3,30}$/.test(usernameClean)) {
+  if (!/^(?!.*_{2})[a-z0-9_]{3,30}$/.test(usernameClean)) {
     return new Response(
       JSON.stringify({ error: "Username must be 3–30 characters: letters, numbers, underscores only" }),
       { status: 400 }

@@ -38,12 +38,12 @@ const year = new Date().getFullYear();
     </script>
   </head>
   <body class="min-h-screen flex flex-col">
-    <div class="flex-1">
+    <div class="flex-1" style="padding-bottom: 8rem;">
       <slot />
     </div>
 
     <footer class="border-t mt-auto"
-            style="background:var(--color-bg-panel); border-color:var(--color-border-subtle)">
+            style="position:relative; z-index:1; background:var(--color-bg-panel); border-color:var(--color-border-subtle)">
       <div class="max-w-[1200px] mx-auto px-6 h-11 flex items-center justify-between">
         <span class="text-xs" style="color:var(--color-text-faint); font-feature-settings:'cv01','ss03'">
           © {year} Botanic
@@ -52,7 +52,7 @@ const year = new Date().getFullYear();
           Hecho por <a href="/user/josh"
              class="transition-colors hover:opacity-80"
              style="color:var(--color-text-subtle); font-weight:510">
-            @joshiny
+            @josh
           </a>
         </span>
       </div>

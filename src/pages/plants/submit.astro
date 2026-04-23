@@ -4,11 +4,27 @@ import Header from "@/components/layout/Header.astro";
 import PlantSubmitForm from "@/components/islands/PlantSubmitForm";
 import { getSession } from "@/lib/auth";
 import { getLang, t } from "@/lib/i18n";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import type { PlantTagRow, PlantFamilyRow, PlantClimateRow, PlantDurationRow } from "@/types";
 
 const session = await getSession(Astro.cookies, Astro.request);
 if (!session) return Astro.redirect("/auth/login");
 
 const lang = getLang(Astro.cookies);
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+
+const [{ data: tagRows }, { data: familyRows }, { data: climateRows }, { data: durationRows }] = await Promise.all([
+  supabase.from("plant_tags").select("key, label_es, label_en").eq("active", true).order("sort_order"),
+  supabase.from("plant_families").select("key, label_es, label_en").eq("active", true).order("sort_order"),
+  supabase.from("plant_climates").select("key, label_es, label_en").eq("active", true).order("sort_order"),
+  supabase.from("plant_durations").select("key, label_es, label_en").eq("active", true).order("sort_order"),
+]);
+
+type ActiveItem = Pick<PlantTagRow, "key" | "label_es" | "label_en">;
+const activeTags      = (tagRows      ?? []) as ActiveItem[];
+const activeFamilies  = (familyRows   ?? []) as ActiveItem[];
+const activeClimates  = (climateRows  ?? []) as Pick<PlantClimateRow,  "key" | "label_es" | "label_en">[];
+const activeDurations = (durationRows ?? []) as Pick<PlantDurationRow, "key" | "label_es" | "label_en">[];
 ---
 
 <Base title={t("submit.title", lang)}>
@@ -30,6 +46,6 @@ const lang = getLang(Astro.cookies);
       {t("submit.subtitle", lang)}
     </p>
 
-    <PlantSubmitForm client:load lang={lang} />
+    <PlantSubmitForm client:load lang={lang} activeTags={activeTags} activeFamilies={activeFamilies} activeClimates={activeClimates} activeDurations={activeDurations} />
   </main>
 </Base>

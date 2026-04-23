@@ -2,33 +2,43 @@
 import Admin from "@/layouts/Admin.astro";
 import AdminContent from "@/components/islands/AdminContent";
 import { requireDashboardAuth } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import type { ContentEntry } from "@/types";
+import { createSupabaseServerClient, createSupabaseAdminClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
+import type { ContentEntry, PlantTagRow, PlantFamilyRow, PlantClimateRow, PlantDurationRow } from "@/types";
 
 const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
 if (!staff) return Astro.redirect("/");
 
+const lang = getLang(Astro.cookies);
 const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
-const { data } = await supabase
-  .from("content")
-  .select("*")
-  .order("key", { ascending: true })
-  .order("lang", { ascending: true });
+const admin = createSupabaseAdminClient();
+
+const [{ data }, { data: tagData }, { data: familyData }, { data: climateData }, { data: durationData }] = await Promise.all([
+  supabase.from("content").select("*").order("key").order("lang"),
+  admin.from("plant_tags").select("*").order("sort_order"),
+  admin.from("plant_families").select("*").order("sort_order"),
+  admin.from("plant_climates").select("*").order("sort_order"),
+  admin.from("plant_durations").select("*").order("sort_order"),
+]);
 
 const entries = (data ?? []) as ContentEntry[];
 const langs = [...new Set(entries.map((e) => e.lang))].sort();
+const tagRows      = (tagData      ?? []) as PlantTagRow[];
+const familyRows   = (familyData   ?? []) as PlantFamilyRow[];
+const climateRows  = (climateData  ?? []) as PlantClimateRow[];
+const durationRows = (durationData ?? []) as PlantDurationRow[];
 ---
 
-<Admin title="Content">
-  <div class="mb-6">
-    <h2 class="text-[20px] tracking-[-0.24px]"
+<Admin title={t("dash.content.title", lang)}>
+  <div class="mb-8">
+    <h2 class="text-[26px] tracking-[-0.3px]"
         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
-      Content
+      {t("dash.content.title", lang)}
     </h2>
-    <p class="text-sm mt-1" style="color:var(--color-text-faint)">
-      Editable texts with multi-language support. Fallback language: <span style="color:var(--color-text-subtle)">es</span>
+    <p class="text-[15px] mt-1" style="color:var(--color-text-faint)">
+      {t("dash.content.subtitle", lang)}
     </p>
   </div>
 
-  <AdminContent client:load initialEntries={entries} langs={langs} />
+  <AdminContent client:load initialEntries={entries} langs={langs} initialTags={tagRows} initialFamilies={familyRows} initialClimates={climateRows} initialDurations={durationRows} lang={lang} />
 </Admin>

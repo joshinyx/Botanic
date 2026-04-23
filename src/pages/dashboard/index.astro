@@ -1,69 +1,225 @@
 ---
 import Admin from "@/layouts/Admin.astro";
-import AdminSubmissions from "@/components/islands/AdminSubmissions";
 import { requireDashboardAuth } from "@/lib/auth";
-import { createSupabaseServerClient } from "@/lib/supabase";
-import type { Plant, UserProfile } from "@/types";
+import { createSupabaseAdminClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
 
 const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
 if (!staff) return Astro.redirect("/");
 
-const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
-const statusFilter = Astro.url.searchParams.get("status") ?? "all";
+const lang = getLang(Astro.cookies);
+const locale = lang === "es" ? "es-ES" : "en-US";
 
-let query = supabase
-  .from("plants")
-  .select("*, users(username, name)")
-  .order("created_at", { ascending: false });
+const admin = createSupabaseAdminClient();
 
-if (statusFilter !== "all") query = query.eq("status", statusFilter);
+// ── Visitor stats ─────────────────────────────────────────────────────────────
 
-const { data: plants } = await query.limit(200);
+const [
+  byCountryRes,
+  dailyRes,
+  { count: totalAllTime },
+  { count: totalThisMonth },
+] = await Promise.all([
+  admin.rpc("get_views_by_country", { days_back: 30 }),
+  admin.rpc("get_daily_views",      { days_back: 30 }),
+  admin.from("page_views").select("*", { count: "exact", head: true }),
+  admin.from("page_views").select("*", { count: "exact", head: true })
+       .gte("created_at", new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()),
+]);
 
-type PlantWithUser = Plant & { users: Pick<UserProfile, "username" | "name"> | null };
-const plantList = (plants ?? []) as PlantWithUser[];
+type CountryRow = { country_code: string; visits: number };
+type DayRow     = { day: string; visits: number };
 
-const counts = {
-  all:      plantList.length,
-  pending:  plantList.filter((p) => p.status === "pending").length,
-  approved: plantList.filter((p) => p.status === "approved").length,
-  rejected: plantList.filter((p) => p.status === "rejected").length,
+const byCountry   = (byCountryRes.data ?? []) as CountryRow[];
+const dailyData   = (dailyRes.data   ?? []) as DayRow[];
+const maxVisits   = Math.max(...byCountry.map((r) => r.visits), 1);
+const dailyMax    = Math.max(...dailyData.map((r) => r.visits), 1);
+
+const avgDaily = dailyData.length
+  ? Math.round(dailyData.reduce((s, r) => s + r.visits, 0) / dailyData.length)
+  : 0;
+
+// ── Country names + flags ─────────────────────────────────────────────────────
+
+const COUNTRY_NAMES: Record<string, string> = {
+  US:"United States",MX:"Mexico",ES:"Spain",AR:"Argentina",CO:"Colombia",
+  CL:"Chile",PE:"Peru",VE:"Venezuela",EC:"Ecuador",BO:"Bolivia",PY:"Paraguay",
+  UY:"Uruguay",DO:"Dominican Republic",GT:"Guatemala",HN:"Honduras",SV:"El Salvador",
+  NI:"Nicaragua",CR:"Costa Rica",PA:"Panama",CU:"Cuba",PR:"Puerto Rico",
+  BR:"Brazil",PT:"Portugal",FR:"France",DE:"Germany",IT:"Italy",GB:"United Kingdom",
+  NL:"Netherlands",BE:"Belgium",CH:"Switzerland",AT:"Austria",PL:"Poland",
+  SE:"Sweden",NO:"Norway",DK:"Denmark",FI:"Finland",IE:"Ireland",
+  CA:"Canada",AU:"Australia",NZ:"New Zealand",JP:"Japan",KR:"South Korea",
+  CN:"China",IN:"India",PH:"Philippines",SG:"Singapore",MY:"Malaysia",
+  ID:"Indonesia",TH:"Thailand",VN:"Vietnam",ZA:"South Africa",EG:"Egypt",
+  MA:"Morocco",NG:"Nigeria",KE:"Kenya",XX:"Unknown",
 };
 
-const TABS = [
-  { value: "all",      label: "All" },
-  { value: "pending",  label: "Pending" },
-  { value: "approved", label: "Approved" },
-  { value: "rejected", label: "Rejected" },
-];
+function countryName(code: string) {
+  return COUNTRY_NAMES[code] ?? code;
+}
+
+function countryFlag(code: string) {
+  if (code === "XX" || code.length !== 2) return "🌐";
+  return [...code.toUpperCase()]
+    .map((c) => String.fromCodePoint(c.charCodeAt(0) + 127397))
+    .join("");
+}
+
+// ── Sparkline SVG ─────────────────────────────────────────────────────────────
+
+function buildSparkline(data: DayRow[], w = 260, h = 48): string {
+  if (data.length < 2) return "";
+  const pts = data.map((r, i) => {
+    const x = (i / (data.length - 1)) * w;
+    const y = h - (r.visits / dailyMax) * (h - 4) - 2;
+    return `${x.toFixed(1)},${y.toFixed(1)}`;
+  });
+  const area = `M0,${h} L${pts.join(" L")} L${w},${h} Z`;
+  const line = `M${pts.join(" L")}`;
+  return `
+    <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" preserveAspectRatio="none"
+         xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">
+      <defs>
+        <linearGradient id="sg" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stop-color="var(--color-accent)" stop-opacity="0.18"/>
+          <stop offset="100%" stop-color="var(--color-accent)" stop-opacity="0"/>
+        </linearGradient>
+      </defs>
+      <path d="${area}" fill="url(#sg)"/>
+      <path d="${line}" fill="none" stroke="var(--color-accent)" stroke-width="1.5"
+            stroke-linejoin="round" stroke-linecap="round"/>
+    </svg>`;
+}
+
+const sparkline = buildSparkline(dailyData);
+
+// ── Top/bottom day labels for the chart ──────────────────────────────────────
+
+const firstDay = dailyData[0]?.day
+  ? new Date(dailyData[0].day).toLocaleDateString(locale, { month: "short", day: "numeric" })
+  : "";
+const lastDay  = dailyData[dailyData.length - 1]?.day
+  ? new Date(dailyData[dailyData.length - 1].day).toLocaleDateString(locale, { month: "short", day: "numeric" })
+  : "";
 ---
 
-<Admin title="Submissions">
-  <div class="flex items-center justify-between mb-6">
-    <h2 class="text-[20px] tracking-[-0.24px]"
+<Admin title={t("dash.overview.title", lang)}>
+  <div class="mb-10">
+    <h2 class="text-[26px] tracking-[-0.3px]"
         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
-      Submissions
+      {t("dash.overview.title", lang)}
     </h2>
+    <p class="text-[15px] mt-1" style="color:var(--color-text-faint)">
+      {new Date().toLocaleDateString(locale, { weekday: "long", month: "long", day: "numeric", year: "numeric" })}
+    </p>
   </div>
 
-  <div class="flex gap-1 mb-5 p-1 rounded-card w-fit"
-       style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
-    {TABS.map((tab) => {
-      const isActive = statusFilter === tab.value;
-      const count = counts[tab.value as keyof typeof counts];
-      return (
-        <a href={`/dashboard${tab.value !== "all" ? `?status=${tab.value}` : ""}`}
-           class="px-3 py-1.5 rounded text-xs transition-colors flex items-center gap-1.5"
-           style={`font-weight:510; font-feature-settings:'cv01','ss03'; background:${isActive ? "var(--color-bg-card-elev)" : "transparent"}; color:${isActive ? "var(--color-text-primary)" : "var(--color-text-faint)"}`}>
-          {tab.label}
-          <span class="px-1.5 py-0.5 rounded-micro text-[10px]"
-                style={`font-weight:510; background:var(--color-bg-card-hover); color:${isActive ? "var(--color-text-secondary)" : "var(--color-text-faint)"}`}>
-            {count}
-          </span>
-        </a>
-      );
-    })}
+  <!-- Stat cards -->
+  <div class="grid grid-cols-3 gap-4 mb-10">
+    <!-- This month -->
+    <div class="rounded-card p-6" style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+      <p class="text-sm mb-2" style="font-weight:510; font-feature-settings:'cv01','ss03'; color:var(--color-text-faint)">
+        {t("dash.overview.visitorsMonth", lang)}
+      </p>
+      <p class="text-[36px] leading-none tracking-[-0.5px]"
+         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+        {(totalThisMonth ?? 0).toLocaleString()}
+      </p>
+      <p class="text-sm mt-1.5" style="font-weight:510; color:var(--color-text-faint)">
+        {t("dash.overview.uniqueNote", lang)}
+      </p>
+    </div>
+
+    <!-- All time -->
+    <div class="rounded-card p-6" style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+      <p class="text-sm mb-2" style="font-weight:510; font-feature-settings:'cv01','ss03'; color:var(--color-text-faint)">
+        {t("dash.overview.visitorsAllTime", lang)}
+      </p>
+      <p class="text-[36px] leading-none tracking-[-0.5px]"
+         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+        {(totalAllTime ?? 0).toLocaleString()}
+      </p>
+      <p class="text-sm mt-1.5" style="font-weight:510; color:var(--color-text-faint)">
+        {t("dash.overview.sinceTracking", lang)}
+      </p>
+    </div>
+
+    <!-- Daily avg -->
+    <div class="rounded-card p-6" style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+      <p class="text-sm mb-2" style="font-weight:510; font-feature-settings:'cv01','ss03'; color:var(--color-text-faint)">
+        {t("dash.overview.dailyAvg", lang)}
+      </p>
+      <p class="text-[36px] leading-none tracking-[-0.5px]"
+         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+        {avgDaily.toLocaleString()}
+      </p>
+      <p class="text-sm mt-1.5" style="font-weight:510; color:var(--color-text-faint)">
+        {t("dash.overview.visitorsDay", lang)}
+      </p>
+    </div>
   </div>
 
-  <AdminSubmissions client:only="react" initialPlants={plantList} currentStaffRole={staff.role} />
+  <!-- Trend + countries -->
+  <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+
+    <!-- Sparkline -->
+    <div class="rounded-card p-7" style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+      <p class="text-sm mb-5" style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+        {t("dash.overview.trend", lang)}
+      </p>
+      {dailyData.length === 0 ? (
+        <div class="flex items-center justify-center h-12">
+          <span class="text-xs" style="color:var(--color-text-faint)">{t("dash.noData", lang)}</span>
+        </div>
+      ) : (
+        <div>
+          <div style="width:100%;" set:html={sparkline.replace('width="260"', 'width="100%"')} />
+          <div class="flex items-center justify-between mt-2">
+            <span class="text-[10px]" style="color:var(--color-text-faint)">{firstDay}</span>
+            <span class="text-[10px]" style="color:var(--color-text-faint)">{lastDay}</span>
+          </div>
+        </div>
+      )}
+    </div>
+
+    <!-- Countries -->
+    <div class="rounded-card p-7" style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+      <p class="text-sm mb-5" style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+        {t("dash.overview.byCountry", lang)}
+      </p>
+      {byCountry.length === 0 ? (
+        <div class="flex items-center justify-center h-12">
+          <span class="text-xs" style="color:var(--color-text-faint)">{t("dash.noData", lang)}</span>
+        </div>
+      ) : (
+        <div class="space-y-2.5">
+          {byCountry.map((row) => {
+            const pct = Math.round((row.visits / maxVisits) * 100);
+            return (
+              <div class="flex items-center gap-3">
+                <span class="text-base leading-none shrink-0" style="width:20px; text-align:center">
+                  {countryFlag(row.country_code)}
+                </span>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between mb-1">
+                    <span class="text-[15px] truncate" style="font-weight:510; font-feature-settings:'cv01','ss03'; color:var(--color-text-secondary)">
+                      {countryName(row.country_code)}
+                    </span>
+                    <span class="text-sm ml-3 shrink-0" style="font-weight:510; color:var(--color-text-faint)">
+                      {row.visits.toLocaleString()}
+                    </span>
+                  </div>
+                  <div class="h-1 rounded-full overflow-hidden" style="background:var(--color-bg-card-elev)">
+                    <div class="h-full rounded-full" style={`width:${pct}%; background:var(--color-accent); opacity:0.7`}></div>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+
+  </div>
 </Admin>

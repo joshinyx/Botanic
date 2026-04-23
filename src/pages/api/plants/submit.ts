@@ -4,8 +4,8 @@ import { isValidHttpUrl } from "@/lib/validate";
 import { isRateLimited, logRateLimitHit, retryAfterMs, formatRetryAfter } from "@/lib/rateLimit";
 import type { Climate, Duration } from "@/types";
 
-const VALID_CLIMATES: Climate[] = ["tropical", "arid", "temperate", "continental", "polar", "mediterranean"];
-const VALID_DURATIONS: Duration[] = ["annual", "biennial", "perennial"];
+const VALID_CLIMATES: Climate[] = ["tropical", "arid", "temperate", "continental", "polar", "mediterranean", "unknown"];
+const VALID_DURATIONS: Duration[] = ["annual", "biennial", "perennial", "unknown"];
 const VALID_TAGS = ["medicinal","edible","ornamental","succulent","aquatic","climbing","shrub","tree","herb","fern","cactus","grass"];
 
 const MAX = { name: 120, description: 2000, country: 100, imageUrl: 2048 };
@@ -32,18 +32,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     climate: string;
     duration: string;
     tags: string[];
+    family?: string;
     image_url: string;
+    flower_url?: string;
   };
 
   const name        = body.name?.trim() ?? "";
   const description = body.description?.trim() ?? "";
   const country     = body.origin_country?.trim() ?? "";
   const imageUrl    = body.image_url?.trim() ?? "";
+  const flowerUrl   = body.flower_url?.trim() || null;
+  const family      = body.family?.trim() ?? null;
   const climate  = body.climate?.trim() ?? "";
   const duration = body.duration?.trim() ?? "";
 
   // Presence
-  if (!name || !description || !country || !climate || !duration || !imageUrl)
+  if (!name || !description || !country || !climate || !duration || !imageUrl || !flowerUrl || !family)
     return new Response(JSON.stringify({ error: "All fields are required" }), { status: 400 });
 
   // Length limits
@@ -55,6 +59,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     return new Response(JSON.stringify({ error: `Country must be at most ${MAX.country} characters` }), { status: 400 });
   if (imageUrl.length > MAX.imageUrl)
     return new Response(JSON.stringify({ error: "Image URL is too long" }), { status: 400 });
+  if (flowerUrl && flowerUrl.length > MAX.imageUrl)
+    return new Response(JSON.stringify({ error: "Flower image URL is too long" }), { status: 400 });
 
   // Enum validation
   if (!VALID_CLIMATES.includes(climate as Climate))
@@ -65,6 +71,8 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   // URL must be http/https — prevents javascript: or data: URIs
   if (!isValidHttpUrl(imageUrl))
     return new Response(JSON.stringify({ error: "Image URL must be a valid http/https URL" }), { status: 400 });
+  if (flowerUrl && !isValidHttpUrl(flowerUrl))
+    return new Response(JSON.stringify({ error: "Flower image URL must be a valid http/https URL" }), { status: 400 });
 
   const cleanTags = Array.isArray(body.tags)
     ? body.tags.filter((t): t is string => typeof t === "string" && VALID_TAGS.includes(t))
@@ -77,7 +85,9 @@ export const POST: APIRoute = async ({ request, cookies }) => {
     climate: climate as Climate,
     duration: duration as Duration,
     tags: cleanTags,
+    family: family || null,
     image_url: imageUrl,
+    flower_url: flowerUrl,
     user_id: user.id,
     status: "pending" as const,
   };

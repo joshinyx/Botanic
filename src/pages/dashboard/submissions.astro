@@ -1,0 +1,75 @@
+---
+import Admin from "@/layouts/Admin.astro";
+import AdminSubmissions from "@/components/islands/AdminSubmissions";
+import { requireDashboardAuth } from "@/lib/auth";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
+import type { Plant, UserProfile } from "@/types";
+
+const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
+if (!staff) return Astro.redirect("/");
+
+const lang = getLang(Astro.cookies);
+const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+const statusFilter = Astro.url.searchParams.get("status") ?? "all";
+
+let query = supabase
+  .from("plants")
+  .select("*, users(username, name, bio, avatar_url, followers_count, following_count, social_links)")
+  .order("created_at", { ascending: false });
+
+if (statusFilter !== "all") query = query.eq("status", statusFilter);
+
+const [{ data: plants }, { data: allStatuses }] = await Promise.all([
+  query.limit(200),
+  supabase.from("plants").select("status").limit(1000),
+]);
+
+type PlantWithUser = Plant & { users: Pick<UserProfile, "username" | "name" | "bio" | "avatar_url" | "followers_count" | "following_count" | "social_links"> | null };
+const plantList = (plants ?? []) as PlantWithUser[];
+
+const all = allStatuses ?? [];
+const counts = {
+  all:      all.length,
+  pending:  all.filter((p) => p.status === "pending").length,
+  approved: all.filter((p) => p.status === "approved").length,
+  rejected: all.filter((p) => p.status === "rejected").length,
+};
+
+const TABS = [
+  { value: "all",      label: t("dash.tab.all",      lang) },
+  { value: "pending",  label: t("dash.tab.pending",  lang) },
+  { value: "approved", label: t("dash.tab.approved", lang) },
+  { value: "rejected", label: t("dash.tab.rejected", lang) },
+];
+---
+
+<Admin title={t("dash.submissions.title", lang)}>
+  <div class="flex items-center justify-between mb-8">
+    <h2 class="text-[26px] tracking-[-0.3px]"
+        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
+      {t("dash.submissions.title", lang)}
+    </h2>
+  </div>
+
+  <div class="flex gap-1 mb-5 p-1 rounded-card w-fit"
+       style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
+    {TABS.map((tab) => {
+      const isActive = statusFilter === tab.value;
+      const count = counts[tab.value as keyof typeof counts];
+      return (
+        <a href={`/dashboard/submissions${tab.value !== "all" ? `?status=${tab.value}` : ""}`}
+           class="px-4 py-2 rounded text-sm transition-colors flex items-center gap-2"
+           style={`font-weight:510; font-feature-settings:'cv01','ss03'; background:${isActive ? "var(--color-bg-card-elev)" : "transparent"}; color:${isActive ? "var(--color-text-primary)" : "var(--color-text-faint)"}`}>
+          {tab.label}
+          <span class="px-1.5 py-0.5 rounded-micro text-xs"
+                style={`font-weight:510; background:var(--color-bg-card-hover); color:${isActive ? "var(--color-text-secondary)" : "var(--color-text-faint)"}`}>
+            {count}
+          </span>
+        </a>
+      );
+    })}
+  </div>
+
+  <AdminSubmissions client:only="react" initialPlants={plantList} currentStaffRole={staff.role} lang={lang} />
+</Admin>

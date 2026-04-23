@@ -3,32 +3,35 @@ import Admin from "@/layouts/Admin.astro";
 import DashboardStaff from "@/components/islands/DashboardStaff";
 import { requireDashboardAuth } from "@/lib/auth";
 import { createSupabaseServerClient } from "@/lib/supabase";
+import { getLang, t } from "@/lib/i18n";
 import type { StaffEntry } from "@/types";
 
 const staff = await requireDashboardAuth(Astro.cookies, Astro.request);
 if (!staff) return Astro.redirect("/");
 if (staff.role !== "super_admin") return Astro.redirect("/dashboard");
 
+const lang = getLang(Astro.cookies);
+
 const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 const { data } = await supabase
   .from("users")
-  .select("id, name, username, email, role, created_at")
+  .select("id, name, username, email, role, show_staff_badge, created_at")
   .not("role", "is", null)
   .order("created_at", { ascending: true });
 
 const staffList = (data ?? []) as StaffEntry[];
 ---
 
-<Admin title="Staff Users">
-  <div class="mb-6">
-    <h2 class="text-[20px] tracking-[-0.24px]"
+<Admin title={t("dash.staff.title", lang)}>
+  <div class="mb-8">
+    <h2 class="text-[26px] tracking-[-0.3px]"
         style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
-      Staff Users
+      {t("dash.staff.title", lang)}
     </h2>
-    <p class="text-sm mt-1" style="color:var(--color-text-faint)">
-      Grant or revoke dashboard access for existing users
+    <p class="text-[15px] mt-1" style="color:var(--color-text-faint)">
+      {t("dash.staff.subtitle", lang)}
     </p>
   </div>
 
-  <DashboardStaff client:load initialStaff={staffList} currentUserId={staff.id} />
+  <DashboardStaff client:load initialStaff={staffList} currentUserId={staff.id} lang={lang} />
 </Admin>

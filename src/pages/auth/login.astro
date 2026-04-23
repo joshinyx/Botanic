@@ -1,6 +1,9 @@
 ---
 import Base from "@/layouts/Base.astro";
 import AuthForm from "@/components/islands/AuthForm";
+import AuthBrand from "@/components/islands/AuthBrand";
+import ThemeToggle from "@/components/islands/ThemeToggle";
+import LanguageSwitcher from "@/components/islands/LanguageSwitcher";
 import { getSession } from "@/lib/auth";
 import { getLang, t } from "@/lib/i18n";
 
@@ -11,12 +14,14 @@ const lang = getLang(Astro.cookies);
 ---
 
 <Base title={t("auth.signin.title", lang)}>
-  <div class="min-h-screen flex flex-col items-center justify-center px-4 py-12"
+  <div class="min-h-screen flex flex-col items-center justify-center px-4 py-12 relative"
        style="background:var(--color-bg-base)">
-    <a href="/" class="text-sm mb-10 hover:opacity-80 transition-opacity"
-       style="color:var(--color-text-primary); font-weight:510; font-feature-settings:'cv01','ss03'">
-      BotanicCatalog
-    </a>
+    <div class="absolute top-4 right-4 flex items-center gap-2">
+      <ThemeToggle client:load />
+      <LanguageSwitcher client:load currentLang={lang} />
+    </div>
+
+    <AuthBrand client:load />
 
     <AuthForm client:load lang={lang} />
 

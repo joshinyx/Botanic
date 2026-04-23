@@ -33,7 +33,7 @@ export default function AuthForm({ lang }: Props) {
     if (mode !== "register") return;
     const u = debouncedUsername.toLowerCase().trim();
     if (!u) { setUsernameStatus("idle"); return; }
-    if (!/^[a-z0-9_]{3,30}$/.test(u)) { setUsernameStatus("invalid"); return; }
+    if (!/^(?!.*_{2})[a-z0-9_]{3,30}$/.test(u)) { setUsernameStatus("invalid"); return; }
     setUsernameStatus("checking");
     fetch(`/api/auth/check-username?username=${encodeURIComponent(u)}`)
       .then(r => r.json())
@@ -86,10 +86,11 @@ export default function AuthForm({ lang }: Props) {
     <div className="w-full max-w-sm mx-auto">
       <div className="rounded-panel p-8" style={card}>
         {/* Mode tabs */}
-        <div className="flex items-center gap-1 mb-8">
+        <div className="flex items-center justify-center gap-1 mb-8">
           {(["login", "register"] as Mode[]).map((m) => (
             <button
               key={m}
+              type="button"
               onClick={() => { setMode(m); setError(""); }}
               className="px-3 py-1.5 rounded text-sm transition-colors"
               style={{
@@ -126,6 +127,15 @@ export default function AuthForm({ lang }: Props) {
                    placeholder="you@example.com" autoComplete="username" />
             <Field label={t("auth.field.password", lang)} type="password" value={password} onChange={setPassword}
                    placeholder="••••••••" autoComplete="current-password" />
+            <div className="-mt-2 text-right">
+              <a
+                href="/auth/forgot-password"
+                className="text-xs transition-colors hover:underline underline-offset-2"
+                style={{ color: "var(--color-text-muted)" }}
+              >
+                {t("auth.forgot.link", lang)}
+              </a>
+            </div>
             <SubmitBtn loading={loading}>{t("auth.btn.signin", lang)}</SubmitBtn>
           </form>
         )}

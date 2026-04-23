@@ -1,129 +1,342 @@
 ---
 import type { Plant, UserProfile } from "@/types";
-import { t, type Lang } from "@/lib/i18n";
 
 interface Props {
-  plant: Plant & { users: Pick<UserProfile, "username" | "name"> | null };
-  lang?: Lang;
+  plant: Plant & {
+    users: Pick<UserProfile, "username" | "name" | "bio" | "avatar_url" | "followers_count" | "following_count"> | null;
+  };
+  lang?: string;
 }
 
-const { plant, lang = "es" } = Astro.props;
-
-const climateColors: Record<string, string> = {
-  tropical:      "#4ade80",
-  arid:          "#fbbf24",
-  temperate:     "#60a5fa",
-  continental:   "#c084fc",
-  polar:         "#94a3b8",
-  mediterranean: "#fb923c",
-};
-
-const climateBg: Record<string, string> = {
-  tropical:      "rgba(74,222,128,0.15)",
-  arid:          "rgba(251,191,36,0.15)",
-  temperate:     "rgba(96,165,250,0.15)",
-  continental:   "rgba(192,132,252,0.15)",
-  polar:         "rgba(148,163,184,0.15)",
-  mediterranean: "rgba(251,146,60,0.15)",
-};
+const { plant } = Astro.props;
+const u = plant.users;
 ---
 
-<a
-  href={`/plants/${plant.id}`}
-  class="pc group block rounded-card border overflow-hidden"
-  style="background:var(--color-bg-card); border-color:var(--color-border-std)"
->
-  <!-- Square image -->
-  <div class="relative overflow-hidden" style="aspect-ratio:1/1; background:var(--color-bg-surface)">
-    <img
-      src={plant.image_url}
-      alt={plant.name}
-      class="w-full h-full object-cover"
-      style="transition: transform 0.5s ease"
-      loading="lazy"
-    />
+<div class="pc group"
+     data-href={`/plants/${plant.id}`}
+     onclick="window.location.href=this.dataset.href"
+     onkeydown="if(event.key==='Enter')window.location.href=this.dataset.href"
+     role="link"
+     tabindex="0">
+  <!-- Full-bleed image -->
+  <img src={plant.image_url} alt={plant.name} class="pc__img" loading="lazy" />
 
-    <!-- Country badge — always visible, top right -->
-    <span class="pc__badge absolute top-2 right-2 text-[10px] px-2 py-0.5 rounded-full text-white"
-          style="background:rgba(0,0,0,0.55); font-weight:510; letter-spacing:0.01em">
-      {plant.origin_country}
-    </span>
+  <!-- Country pill -->
+  <span class="pc__country" aria-hidden="true">
+    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+         stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/>
+      <path d="M17.657 16.657 13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/>
+    </svg>
+    {plant.origin_country}
+  </span>
 
-    <!-- Hover overlay: gradient + name + pills -->
-    <div class="pc__overlay absolute inset-0 flex flex-col justify-end p-3"
-         style="background:linear-gradient(to top, rgba(0,0,0,0.75) 0%, rgba(0,0,0,0.25) 50%, transparent 80%)">
-      <p class="text-[14px] leading-tight text-white mb-2"
-         style="font-weight:590; font-feature-settings:'cv01','ss03'">
-        {plant.name}
-      </p>
-      <div class="flex items-center gap-1.5 flex-wrap">
-        <span class="text-[11px] px-2 py-0.5 rounded-full"
-              style={`background:${climateBg[plant.climate] ?? "rgba(255,255,255,0.15)"}; color:${climateColors[plant.climate] ?? "#fff"}; font-weight:510`}>
-          {plant.climate}
-        </span>
-        <span class="text-[11px] px-2 py-0.5 rounded-full"
-              style="background:rgba(255,255,255,0.15); color:rgba(255,255,255,0.85); font-weight:510">
-          {plant.duration}
-        </span>
-      </div>
-    </div>
-  </div>
+  <!-- Gradient overlay -->
+  <div class="pc__overlay" aria-hidden="true"></div>
 
-  <!-- Content -->
-  <div class="p-3">
-    <h3 class="text-[13px] tracking-[-0.1px] mb-1.5 truncate"
-        style="font-weight:590; font-feature-settings:'cv01','ss03'; color:var(--color-text-primary)">
-      {plant.name}
-    </h3>
+  <!-- Text on gradient -->
+  <div class="pc__body">
+    <h3 class="pc__name">{plant.name}</h3>
+    <p class="pc__desc">{plant.description}</p>
 
-    {plant.tags.length > 0 && (
-      <div class="flex flex-wrap gap-1 mb-2">
-        {plant.tags.slice(0, 2).map((tag) => (
-          <span class="px-1.5 py-0.5 rounded-micro text-[10px]"
-                style="background:var(--color-bg-card-hover); border:1px solid var(--color-border-subtle); color:var(--color-text-subtle); font-weight:510">
-            {tag}
-          </span>
-        ))}
-        {plant.tags.length > 2 && (
-          <span class="px-1.5 py-0.5 rounded-micro text-[10px]"
-                style="background:var(--color-bg-card-hover); border:1px solid var(--color-border-subtle); color:var(--color-text-subtle)">
-            +{plant.tags.length - 2}
-          </span>
-        )}
-      </div>
-    )}
-
-    {plant.users && (
-      <p class="text-[11px]" style="color:var(--color-text-subtle)">
-        <a href={`/user/${plant.users.username}`}
-           class="transition-colors"
-           style="color:var(--color-text-muted); font-weight:510"
-           onclick="(function(e){e.stopPropagation()})(event)">
-          @{plant.users.username}
+    {u && (
+      <div class="pc__author-wrap" onclick="event.stopPropagation()">
+        <a
+          href={`/user/${u.username}`}
+          class="pc__author"
+          data-username={u.username}
+          data-name={u.name}
+          data-bio={u.bio ?? ""}
+          data-avatar={u.avatar_url ?? ""}
+          data-followers={u.followers_count ?? 0}
+          data-following={u.following_count ?? 0}
+          onclick="event.stopPropagation()"
+        >
+          <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+               stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="8" r="4"/>
+            <path d="M4 20c0-4 3.582-7 8-7s8 3 8 7"/>
+          </svg>
+          @{u.username}
         </a>
-      </p>
+        <!-- Hover popover injected by script -->
+        <div class="pc__popover" role="tooltip" hidden>
+          <div class="pc__pop-bar"></div>
+          <div class="pc__pop-inner">
+            <div class="pc__pop-head">
+              {u.avatar_url
+                ? <img src={u.avatar_url} alt={u.name} class="pc__pop-avatar" />
+                : <div class="pc__pop-avatar-ph">{u.name.charAt(0).toUpperCase()}</div>
+              }
+              <div>
+                <p class="pc__pop-name">{u.name}</p>
+                <p class="pc__pop-handle">@{u.username}</p>
+              </div>
+            </div>
+            {u.bio && <p class="pc__pop-bio">{u.bio}</p>}
+            <div class="pc__pop-stats">
+              <div><span class="pc__pop-num">{u.followers_count ?? 0}</span><span class="pc__pop-lbl">followers</span></div>
+              <div><span class="pc__pop-num">{u.following_count ?? 0}</span><span class="pc__pop-lbl">following</span></div>
+            </div>
+          </div>
+        </div>
+      </div>
     )}
   </div>
-</a>
+</div>
 
 <style>
+  /* ── Shell ── */
   .pc {
+    position: relative;
+    display: block;
+    aspect-ratio: 3 / 4;
+    border-radius: 10px;
+    border: 1px solid var(--color-border-std);
+    overflow: hidden;
+    cursor: pointer;
+    background: var(--color-bg-surface);
     transition: border-color 0.2s ease, transform 0.2s ease, box-shadow 0.2s ease;
   }
   .pc:hover {
-    border-color: rgba(58, 125, 94, 0.45);
-    transform: translateY(-2px);
-    box-shadow: 0 8px 24px rgba(0,0,0,0.18);
+    border-color: rgba(58, 125, 94, 0.5);
+    transform: translateY(-3px);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(58, 125, 94, 0.12);
   }
-  .pc:hover img {
-    transform: scale(1.05);
+
+  /* ── Image ── */
+  .pc__img {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    transition: transform 0.55s ease;
   }
-  /* Overlay hidden by default, visible on hover */
+  .pc:hover .pc__img {
+    transform: scale(1.06);
+  }
+
+  /* ── Country pill ── */
+  .pc__country {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 3px 9px;
+    border-radius: 99px;
+    background: rgba(0, 0, 0, 0.38);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    font-size: 10px;
+    font-weight: 510;
+    color: rgba(255, 255, 255, 0.88);
+    letter-spacing: 0.02em;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  /* ── Gradient overlay ── */
   .pc__overlay {
-    opacity: 0;
-    transition: opacity 0.25s ease;
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      to top,
+      rgba(0, 0, 0, 0.88) 0%,
+      rgba(0, 0, 0, 0.52) 38%,
+      rgba(0, 0, 0, 0.1) 62%,
+      transparent 80%
+    );
+    z-index: 1;
+    pointer-events: none;
   }
-  .pc:hover .pc__overlay {
-    opacity: 1;
+
+  /* ── Body (text on gradient) ── */
+  .pc__body {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    padding: 0 14px 14px;
+    z-index: 3;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  /* ── Name ── */
+  .pc__name {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 590;
+    line-height: 1.25;
+    letter-spacing: -0.2px;
+    font-feature-settings: "cv01", "ss03";
+    color: #fff;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── Description ── */
+  .pc__desc {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.55;
+    color: rgba(255, 255, 255, 0.65);
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  /* ── Author ── */
+  .pc__author-wrap {
+    position: relative;
+    display: inline-flex;
+    margin-top: 2px;
+  }
+  .pc__author {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    font-size: 11px;
+    font-weight: 510;
+    font-feature-settings: "cv01", "ss03";
+    color: var(--color-accent);
+    text-decoration: none;
+    transition: color 0.15s ease;
+  }
+  .pc__author:hover {
+    color: var(--color-accent-hover, #74c69d);
+  }
+
+  /* ── Popover ── */
+  .pc__popover {
+    position: absolute;
+    bottom: calc(100% + 10px);
+    left: 0;
+    width: 220px;
+    background: var(--color-bg-surface);
+    border: 1px solid var(--color-border-std);
+    border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0, 0, 0, 0.32), 0 2px 8px rgba(0, 0, 0, 0.12);
+    overflow: hidden;
+    z-index: 100;
+    animation: pop-in 0.12s ease;
+  }
+  .pc__popover[hidden] { display: none; }
+
+  @keyframes pop-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  .pc__pop-bar {
+    height: 3px;
+    background: linear-gradient(90deg, var(--color-brand), var(--color-accent));
+  }
+  .pc__pop-inner { padding: 14px 14px 12px; }
+  .pc__pop-head {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+  }
+  .pc__pop-avatar {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    object-fit: cover;
+    flex-shrink: 0;
+    border: 2px solid var(--color-border-std);
+  }
+  .pc__pop-avatar-ph {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    background: rgba(58, 125, 94, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 590;
+    color: #52b788;
+  }
+  .pc__pop-name {
+    margin: 0;
+    font-size: 13px;
+    font-weight: 590;
+    color: var(--color-text-primary);
+    font-feature-settings: "cv01", "ss03";
+    line-height: 1.2;
+  }
+  .pc__pop-handle {
+    margin: 0;
+    font-size: 11px;
+    color: var(--color-accent);
+    font-weight: 510;
+  }
+  .pc__pop-bio {
+    margin: 0 0 10px;
+    font-size: 11px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .pc__pop-stats {
+    display: flex;
+    gap: 14px;
+  }
+  .pc__pop-stats > div {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .pc__pop-num {
+    font-size: 13px;
+    font-weight: 590;
+    color: var(--color-text-primary);
+    line-height: 1;
+  }
+  .pc__pop-lbl {
+    font-size: 10px;
+    color: var(--color-text-faint);
+    margin-top: 2px;
   }
 </style>
+
+<script>
+  // Vanilla hover logic for static PlantCard popover
+  document.querySelectorAll<HTMLElement>(".pc__author-wrap").forEach((wrap) => {
+    const trigger = wrap.querySelector<HTMLAnchorElement>(".pc__author");
+    const pop     = wrap.querySelector<HTMLElement>(".pc__popover");
+    if (!trigger || !pop) return;
+
+    let showT: ReturnType<typeof setTimeout> | null = null;
+    let hideT: ReturnType<typeof setTimeout> | null = null;
+
+    function show() {
+      if (hideT) { clearTimeout(hideT); hideT = null; }
+      showT = setTimeout(() => pop!.removeAttribute("hidden"), 220);
+    }
+    function hide() {
+      if (showT) { clearTimeout(showT); showT = null; }
+      hideT = setTimeout(() => pop!.setAttribute("hidden", ""), 120);
+    }
+
+    trigger.addEventListener("mouseenter", show);
+    trigger.addEventListener("mouseleave", hide);
+    pop.addEventListener("mouseenter", show);
+    pop.addEventListener("mouseleave", hide);
+  });
+</script>

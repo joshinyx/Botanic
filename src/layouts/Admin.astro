@@ -1,5 +1,11 @@
 ---
 import "../styles/global.css";
+import ThemeToggle from "@/components/islands/ThemeToggle";
+import LanguageSwitcher from "@/components/islands/LanguageSwitcher";
+import UserDropdown from "@/components/islands/UserDropdown";
+import { createSupabaseServerClient } from "@/lib/supabase";
+import { getSession } from "@/lib/auth";
+import { getLang, t } from "@/lib/i18n";
 
 interface Props {
   title: string;
@@ -7,14 +13,35 @@ interface Props {
 
 const { title } = Astro.props;
 
+const lang = getLang(Astro.cookies);
+const currentPath = Astro.url.pathname;
+
 const navLinks = [
-  { href: "/dashboard",         label: "Submissions" },
-  { href: "/dashboard/staff",   label: "Staff Users" },
-  { href: "/dashboard/logs",    label: "Action Logs" },
-  { href: "/dashboard/content", label: "Content" },
+  { href: "/dashboard",              label: t("dash.nav.overview",    lang) },
+  { href: "/dashboard/submissions",  label: t("dash.nav.submissions", lang) },
+  { href: "/dashboard/staff",        label: t("dash.nav.staff",       lang) },
+  { href: "/dashboard/logs",         label: t("dash.nav.logs",        lang) },
+  { href: "/dashboard/content",      label: t("dash.nav.content",     lang) },
 ];
 
-const currentPath = Astro.url.pathname;
+const session = await getSession(Astro.cookies, Astro.request);
+let username: string | null = null;
+let userRole: string | null = null;
+let userName: string | null = null;
+let userAvatarUrl: string | null = null;
+
+if (session) {
+  const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
+  const { data } = await supabase
+    .from("users")
+    .select("username, role, name, avatar_url")
+    .eq("id", session.id)
+    .maybeSingle();
+  username     = data?.username ?? (session.user_metadata?.username as string | undefined) ?? null;
+  userRole     = data?.role ?? null;
+  userName     = data?.name ?? null;
+  userAvatarUrl = data?.avatar_url ?? null;
+}
 ---
 
 <!doctype html>
@@ -23,8 +50,7 @@ const currentPath = Astro.url.pathname;
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,100..900;1,14..32,100..900&display=swap" rel="stylesheet" />
-    <title>{title} — Admin</title>
+    <title>{title} — Dashboard</title>
     <script is:inline>
       (function(){
         var t=localStorage.getItem("bc_theme");
@@ -32,40 +58,67 @@ const currentPath = Astro.url.pathname;
       })();
     </script>
   </head>
-  <body class="min-h-screen flex" style="background:var(--color-bg-base); color:var(--color-text-primary)">
-    <!-- Sidebar -->
-    <aside class="w-56 shrink-0 flex flex-col min-h-screen"
-           style="background:var(--color-bg-panel); border-right:1px solid var(--color-border-subtle)">
-      <div class="px-4 py-5" style="border-bottom:1px solid var(--color-border-subtle)">
-        <a href="/" class="text-sm" style="font-weight:510; color:var(--color-text-primary)">
-          BotanicCatalog
-        </a>
-        <p class="text-xs mt-0.5" style="color:var(--color-text-faint)">Admin Panel</p>
-      </div>
-      <nav class="flex-1 px-2 py-4 space-y-0.5">
-        {navLinks.map((link) => (
-          <a href={link.href}
-             class="block px-3 py-2 rounded text-sm transition-colors"
-             style={`font-weight:510; color:${currentPath === link.href ? "var(--color-text-primary)" : "var(--color-text-subtle)"}; background:${currentPath === link.href ? "var(--color-bg-card-elev)" : "transparent"}`}>
-            {link.label}
-          </a>
-        ))}
-      </nav>
-      <div class="px-4 py-4" style="border-top:1px solid var(--color-border-subtle)">
-        <form method="POST" action="/api/auth/logout">
-          <button type="submit" class="text-xs transition-colors"
-                  style="color:var(--color-text-faint)">
-            Sign out
-          </button>
-        </form>
-      </div>
-    </aside>
+  <body class="min-h-screen" style="background:var(--color-bg-base); color:var(--color-text-primary)">
 
-    <!-- Main content -->
-    <main class="flex-1 min-h-screen overflow-auto">
-      <div class="max-w-5xl mx-auto px-6 py-8">
-        <slot />
+    <!-- Top navbar (same as Header.astro) -->
+    <header
+      class="sticky top-0 z-50 border-b"
+      style="background:var(--color-bg-panel); border-color:var(--color-border-subtle)"
+    >
+      <div class="max-w-[1200px] mx-auto px-6 h-12 flex items-center gap-3">
+        <!-- Brand + Dashboard label -->
+        <a href="/" class="shrink-0 transition-opacity hover:opacity-75">
+          <img src="/images/botanic.svg" alt="BotanicCatalog"
+               width="22" height="23"
+               style="display:block; filter:var(--logo-filter)" />
+        </a>
+        <div class="w-px h-4 shrink-0" style="background:var(--color-border-std)"></div>
+        <a href="/dashboard"
+           class="text-xs shrink-0 transition-colors hover:opacity-80"
+           style="font-weight:510; font-feature-settings:'cv01','ss03'; color:var(--color-text-muted)">
+          Dashboard
+        </a>
+
+        <!-- Controls -->
+        <div class="flex items-center gap-2 ml-auto">
+          <ThemeToggle client:load />
+          <LanguageSwitcher client:load currentLang={lang} />
+          {session && (
+            <UserDropdown client:load username={username ?? ""} name={userName ?? ""} avatarUrl={userAvatarUrl} lang={lang} role={userRole} />
+          )}
+        </div>
       </div>
-    </main>
+    </header>
+
+    <!-- Body: sidebar + content -->
+    <div class="flex" style="min-height:calc(100vh - 48px)">
+
+      <!-- Sidebar -->
+      <aside class="w-48 shrink-0 border-r" style="background:var(--color-bg-panel); border-color:var(--color-border-subtle)">
+        <nav class="px-2 py-5 space-y-0.5">
+          {navLinks.map((link) => {
+            const isActive = currentPath === link.href;
+            return (
+              <a
+                href={link.href}
+                class="flex items-center px-3 py-2 rounded text-sm transition-colors"
+                style={`font-weight:510; font-feature-settings:'cv01','ss03'; color:${isActive ? "var(--color-text-primary)" : "var(--color-text-subtle)"}; background:${isActive ? "var(--color-bg-card-elev)" : "transparent"}`}
+              >
+                {link.label}
+              </a>
+            );
+          })}
+        </nav>
+      </aside>
+
+      <!-- Main content -->
+      <main class="flex-1 min-w-0">
+        <div class="max-w-5xl mx-auto px-8 py-8">
+          <slot />
+        </div>
+      </main>
+
+    </div>
+
   </body>
 </html>

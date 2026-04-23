@@ -83,6 +83,7 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     transition: background-color 0.2s ease, color 0.2s ease;
+    overflow-y: scroll; /* fuerza scrollbar clásica — nunca se auto-oculta */
     @apply font-sans;
   }
 
@@ -169,11 +170,64 @@
   }
 }
 
+/* ── Scrollbar — siempre visible, delgada ──────────────────────────────────── */
+
+/* Firefox */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.15) rgba(255, 255, 255, 0.03);
+}
+
+[data-theme="light"] * {
+  scrollbar-color: rgba(0, 0, 0, 0.18) rgba(0, 0, 0, 0.04);
+}
+
+/* Webkit */
+::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.15);
+  border-radius: 9999px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: var(--color-accent);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.04);
+}
+
+[data-theme="light"] ::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.18);
+}
+
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
 /* ── Animations ────────────────────────────────────────────────────────────── */
 
 @keyframes dropdown-in {
   from { opacity: 0; transform: translateY(-4px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes edit-row-in {
+  from { opacity: 0; transform: translateY(-5px) scaleY(0.96); }
+  to   { opacity: 1; transform: translateY(0)   scaleY(1); }
+}
+
+.edit-row-enter {
+  animation: edit-row-in 0.18s cubic-bezier(0.16, 1, 0.3, 1) both;
+  transform-origin: top;
 }
 
 /* ── CSS utility shortcuts ─────────────────────────────────────────────────── */

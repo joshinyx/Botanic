@@ -9,22 +9,22 @@ export const POST: APIRoute = async ({ request, cookies }) => {
   if (!staff) return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403 });
   if (staff.role !== "super_admin") return new Response(JSON.stringify({ error: "Super admin only" }), { status: 403 });
 
-  const body = await request.json() as { username: string; role: string };
-  const { username, role } = body;
+  const body = await request.json() as { identifier: string; role: string };
+  const { identifier, role } = body;
 
-  if (!username?.trim()) return new Response(JSON.stringify({ error: "Username required" }), { status: 400 });
+  if (!identifier?.trim()) return new Response(JSON.stringify({ error: "Username or email required" }), { status: 400 });
   if (!["super_admin", "editor", "reader"].includes(role)) {
     return new Response(JSON.stringify({ error: "Invalid role" }), { status: 400 });
   }
 
   const supabase = createSupabaseServerClient(cookies, request);
+  const value = identifier.toLowerCase().trim();
 
-  // Look up the target user
-  const { data: target, error: lookupError } = await supabase
-    .from("users")
-    .select("id, username, email")
-    .eq("username", username.toLowerCase().trim())
-    .maybeSingle();
+  // Try username first, then email
+  const byUsername = await supabase.from("users").select("id, username, email").eq("username", value).maybeSingle();
+  const { data: target, error: lookupError } = byUsername.data
+    ? byUsername
+    : await supabase.from("users").select("id, username, email").eq("email", value).maybeSingle();
 
   if (lookupError || !target) {
     return new Response(JSON.stringify({ error: "User not found" }), { status: 404 });

@@ -5,6 +5,11 @@ import node from "@astrojs/node";
 
 export default defineConfig({
   output: "server",
+  vite: {
+    server: {
+      allowedHosts: ["app.joshiny.dev"],
+    },
+  },
   adapter: node({
     mode: "standalone",
   }),

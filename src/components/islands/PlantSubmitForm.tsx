@@ -1,9 +1,17 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { ChevronDownIcon, CheckIcon, UploadIcon } from "lucide-react";
-import type { Climate, Duration, PlantTag } from "@/types";
+import type { Climate, Duration, PlantTagRow, PlantFamilyRow, PlantClimateRow, PlantDurationRow } from "@/types";
 import { t, type Lang } from "@/lib/i18n";
 
-interface Props { lang: Lang; }
+type ActiveItem = Pick<PlantTagRow, "key" | "label_es" | "label_en">;
+
+interface Props {
+  lang: Lang;
+  activeTags?: ActiveItem[];
+  activeFamilies?: ActiveItem[];
+  activeClimates?: Pick<PlantClimateRow, "key" | "label_es" | "label_en">[];
+  activeDurations?: Pick<PlantDurationRow, "key" | "label_es" | "label_en">[];
+}
 
 const COUNTRIES = [
   "Afghanistan","Albania","Algeria","Andorra","Angola","Antigua and Barbuda","Argentina","Armenia","Australia","Austria",
@@ -44,10 +52,6 @@ const DURATIONS: { value: Duration; label: string }[] = [
   { value: "perennial", label: "Perennial" },
 ];
 
-const TAGS: PlantTag[] = [
-  "medicinal","edible","ornamental","succulent","aquatic",
-  "climbing","shrub","tree","herb","fern","cactus","grass",
-];
 
 // ── Shared styles ──────────────────────────────────────────────────────────
 
@@ -80,25 +84,50 @@ function useOutsideClose(open: boolean, onClose: () => void) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 
-export default function PlantSubmitForm({ lang }: Props) {
+export default function PlantSubmitForm({ lang, activeTags = [], activeFamilies = [], activeClimates = [], activeDurations = [] }: Props) {
+  const climateOptions = (() => {
+    const items = activeClimates.length > 0 ? activeClimates : CLIMATES.map(c => ({ key: c.value, label_es: c.label, label_en: c.label }));
+    const unknown = items.find(c => c.key === "unknown");
+    const rest = items.filter(c => c.key !== "unknown");
+    return [
+      ...(unknown ? [{ value: unknown.key as Climate, label: lang === "en" ? unknown.label_en : unknown.label_es, dividerAfter: true }] : []),
+      ...rest.map(c => ({ value: c.key as Climate, label: lang === "en" ? c.label_en : c.label_es })),
+    ];
+  })();
+
+  const durationOptions = (() => {
+    const items = activeDurations.length > 0 ? activeDurations : DURATIONS.map(d => ({ key: d.value, label_es: d.label, label_en: d.label }));
+    const unknown = items.find(d => d.key === "unknown");
+    const rest = items.filter(d => d.key !== "unknown");
+    return [
+      ...(unknown ? [{ value: unknown.key as Duration, label: lang === "en" ? unknown.label_en : unknown.label_es, dividerAfter: true }] : []),
+      ...rest.map(d => ({ value: d.key as Duration, label: lang === "en" ? d.label_en : d.label_es })),
+    ];
+  })();
   const [name,        setName]        = useState("");
   const [description, setDescription] = useState("");
   const [country,     setCountry]     = useState("");
   const [climate,     setClimate]     = useState<Climate | "">("");
   const [duration,    setDuration]    = useState<Duration | "">("");
-  const [tags,        setTags]        = useState<PlantTag[]>([]);
+  const [family,      setFamily]      = useState("");
+  const [tags,        setTags]        = useState<string[]>([]);
   const [imageUrl,    setImageUrl]    = useState("");
+  const [flowerUrl,   setFlowerUrl]   = useState("");
   const [loading,       setLoading]       = useState(false);
   const [submitError,   setSubmitError]   = useState("");
   const [errors,        setErrors]        = useState<Record<string, boolean>>({});
   const [uploading,     setUploading]     = useState(false);
   const [uploadError,   setUploadError]   = useState("");
   const [uploadedName,  setUploadedName]  = useState("");
+  const [flowerUploading,    setFlowerUploading]    = useState(false);
+  const [flowerUploadError,  setFlowerUploadError]  = useState("");
+  const [flowerUploadedName, setFlowerUploadedName] = useState("");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const flowerFileInputRef = useRef<HTMLInputElement>(null);
 
   const requiredMsg = t("form.required", lang);
 
-  const toggleTag = useCallback((tag: PlantTag) => {
+  const toggleTag = useCallback((tag: string) => {
     setTags((prev) => prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag]);
   }, []);
 
@@ -126,16 +155,38 @@ export default function PlantSubmitForm({ lang }: Props) {
     }
   }, [clearError]);
 
+  const handleFlowerUpload = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFlowerUploadError("");
+    setFlowerUploading(true);
+    try {
+      const fd = new FormData();
+      fd.append("image", file);
+      const res = await fetch("/api/plants/upload-image", { method: "POST", body: fd });
+      const data = await res.json() as { ok?: boolean; url?: string; error?: string };
+      if (!res.ok || !data.url) { setFlowerUploadError(data.error ?? "Upload failed"); return; }
+      setFlowerUrl(data.url);
+      setFlowerUploadedName(file.name);
+      clearError("flowerUrl");
+    } finally {
+      setFlowerUploading(false);
+      if (flowerFileInputRef.current) flowerFileInputRef.current.value = "";
+    }
+  }, [clearError]);
+
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitError("");
 
     const newErrors: Record<string, boolean> = {};
-    if (!name.trim())    newErrors.name    = true;
-    if (!imageUrl.trim()) newErrors.imageUrl = true;
-    if (!country)        newErrors.country  = true;
-    if (!climate)        newErrors.climate  = true;
-    if (!duration)       newErrors.duration = true;
+    if (!name.trim())         newErrors.name      = true;
+    if (!imageUrl.trim())     newErrors.imageUrl  = true;
+    if (!flowerUrl.trim())    newErrors.flowerUrl = true;
+    if (!country)             newErrors.country   = true;
+    if (!climate)             newErrors.climate   = true;
+    if (!duration)            newErrors.duration  = true;
+    if (activeFamilies.length > 0 && !family) newErrors.family = true;
 
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
@@ -147,7 +198,7 @@ export default function PlantSubmitForm({ lang }: Props) {
       const res = await fetch("/api/plants/submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, description, origin_country: country, climate, duration, tags, image_url: imageUrl }),
+        body: JSON.stringify({ name, description, origin_country: country, climate, duration, family: family || undefined, tags, image_url: imageUrl, flower_url: flowerUrl || undefined }),
       });
       const data = await res.json() as { ok?: boolean; error?: string };
       if (!res.ok) { setSubmitError(data.error ?? "Submission failed"); return; }
@@ -155,7 +206,7 @@ export default function PlantSubmitForm({ lang }: Props) {
     } finally {
       setLoading(false);
     }
-  }, [name, description, country, climate, duration, tags, imageUrl]);
+  }, [name, description, country, climate, duration, family, tags, imageUrl, flowerUrl]);
 
   return (
     <form onSubmit={handleSubmit} noValidate className="space-y-5 max-w-xl mx-auto">
@@ -187,113 +238,106 @@ export default function PlantSubmitForm({ lang }: Props) {
         />
       </F>
 
-      {/* Image */}
-      <F label={t("submit.field.image", lang)} required error={errors.imageUrl} errorMsg={requiredMsg}>
-        {/* hidden file input */}
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/png,image/webp,image/jpeg,image/avif"
-          style={{ display: "none" }}
-          onChange={handleFileUpload}
-        />
-        {/* URL input with upload button inlined on the right */}
-        <div style={{ position: "relative" }}>
-          {uploadedName ? (
-            /* show filename chip when image was uploaded */
-            <div style={{
-              ...inputBase,
-              paddingRight: 44,
-              border: `1px solid ${errors.imageUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}`,
-              display: "flex", alignItems: "center", gap: 8,
-              cursor: "default",
-            }}>
-              <span style={{
-                flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
-                fontSize: 13, color: "var(--color-text-secondary)",
-              }}>
-                {uploadedName}
-              </span>
-              <button
-                type="button"
-                onClick={() => { setImageUrl(""); setUploadedName(""); }}
-                style={{
-                  flexShrink: 0, background: "none", border: "none", padding: 0,
-                  cursor: "pointer", color: "var(--color-text-faint)", lineHeight: 1,
-                  marginRight: 28,
-                }}
-                title="Remove"
-              >
-                ✕
-              </button>
-            </div>
-          ) : (
-            <input
-              type="url"
-              value={imageUrl}
-              onChange={(e) => { setImageUrl(e.target.value); if (e.target.value.trim()) clearError("imageUrl"); }}
-              placeholder="https://example.com/plant.jpg"
-              style={{
-                ...inputBase,
-                paddingRight: 44,
-                border: `1px solid ${errors.imageUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}`,
-              }}
-            />
-          )}
-          <button
-            type="button"
-            disabled={uploading}
-            onClick={() => fileInputRef.current?.click()}
-            title="Upload image"
-            style={{
-              position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)",
-              width: 28, height: 28,
-              display: "flex", alignItems: "center", justifyContent: "center",
-              borderRadius: 5,
-              background: "transparent",
-              color: uploading ? "var(--color-text-faint)" : "var(--color-text-muted)",
-              border: "none",
-              cursor: uploading ? "not-allowed" : "pointer",
-              transition: "background 0.1s, color 0.1s",
-            }}
-            onMouseEnter={(e) => {
-              if (!uploading) {
-                (e.currentTarget as HTMLElement).style.background = "var(--color-bg-card-elev)";
-                (e.currentTarget as HTMLElement).style.color = "var(--color-text-primary)";
-              }
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLElement).style.background = "transparent";
-              (e.currentTarget as HTMLElement).style.color = "var(--color-text-muted)";
-            }}
-          >
-            <UploadIcon size={14} />
-          </button>
-        </div>
-        {uploadError && (
-          <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f87171" }}>{uploadError}</p>
-        )}
-        {imageUrl && (
-          <div className="mt-2 rounded-card overflow-hidden"
-               style={{ border: "1px solid var(--color-border-std)" }}>
-            <img src={imageUrl} alt={t("submit.preview", lang)}
-                 className="w-full h-40 object-cover"
-                 onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+      {/* Images: flower (left) + plant (right) — side by side */}
+      <input ref={flowerFileInputRef} type="file" accept="image/png,image/webp,image/jpeg,image/avif" style={{ display: "none" }} onChange={handleFlowerUpload} />
+      <input ref={fileInputRef}       type="file" accept="image/png,image/webp,image/jpeg,image/avif" style={{ display: "none" }} onChange={handleFileUpload} />
+
+      <div className="grid grid-cols-2 gap-3">
+        {/* Flower */}
+        <F label={t("submit.field.flower", lang)} required error={errors.flowerUrl} errorMsg={requiredMsg}>
+          <div style={{ position: "relative" }}>
+            {flowerUploadedName ? (
+              <div style={{ ...inputBase, paddingRight: 44, border: `1px solid ${errors.flowerUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}`, display: "flex", alignItems: "center", gap: 8, cursor: "default" }}>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "var(--color-text-secondary)" }}>{flowerUploadedName}</span>
+                <button type="button" onClick={() => { setFlowerUrl(""); setFlowerUploadedName(""); }}
+                        style={{ flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--color-text-faint)", lineHeight: 1, marginRight: 28 }}
+                        title="Remove">✕</button>
+              </div>
+            ) : (
+              <input type="url" value={flowerUrl}
+                     onChange={(e) => { setFlowerUrl(e.target.value); if (e.target.value.trim()) clearError("flowerUrl"); }}
+                     placeholder="https://…"
+                     style={{ ...inputBase, paddingRight: 44, border: `1px solid ${errors.flowerUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}` }} />
+            )}
+            <button type="button" disabled={flowerUploading} onClick={() => flowerFileInputRef.current?.click()}
+                    title="Subir imagen"
+                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 5, background: "transparent", color: flowerUploading ? "var(--color-text-faint)" : "var(--color-text-muted)", border: "none", cursor: flowerUploading ? "not-allowed" : "pointer", transition: "background 0.1s, color 0.1s" }}
+                    onMouseEnter={(e) => { if (!flowerUploading) { (e.currentTarget as HTMLElement).style.background = "var(--color-bg-card-elev)"; (e.currentTarget as HTMLElement).style.color = "var(--color-text-primary)"; } }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--color-text-muted)"; }}>
+              <UploadIcon size={14} />
+            </button>
           </div>
-        )}
-      </F>
+          {flowerUploadError && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f87171" }}>{flowerUploadError}</p>}
+          {flowerUrl && (
+            <div className="mt-2 rounded-card overflow-hidden" style={{ border: "1px solid var(--color-border-std)" }}>
+              <img src={flowerUrl} alt={t("submit.preview", lang)} className="w-full h-28 object-cover"
+                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            </div>
+          )}
+        </F>
+
+        {/* Plant */}
+        <F label={t("submit.field.image", lang)} required error={errors.imageUrl} errorMsg={requiredMsg}>
+          <div style={{ position: "relative" }}>
+            {uploadedName ? (
+              <div style={{ ...inputBase, paddingRight: 44, border: `1px solid ${errors.imageUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}`, display: "flex", alignItems: "center", gap: 8, cursor: "default" }}>
+                <span style={{ flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 13, color: "var(--color-text-secondary)" }}>{uploadedName}</span>
+                <button type="button" onClick={() => { setImageUrl(""); setUploadedName(""); }}
+                        style={{ flexShrink: 0, background: "none", border: "none", padding: 0, cursor: "pointer", color: "var(--color-text-faint)", lineHeight: 1, marginRight: 28 }}
+                        title="Remove">✕</button>
+              </div>
+            ) : (
+              <input type="url" value={imageUrl}
+                     onChange={(e) => { setImageUrl(e.target.value); if (e.target.value.trim()) clearError("imageUrl"); }}
+                     placeholder="https://…"
+                     style={{ ...inputBase, paddingRight: 44, border: `1px solid ${errors.imageUrl ? "rgba(248,113,113,0.5)" : "var(--color-border-std)"}` }} />
+            )}
+            <button type="button" disabled={uploading} onClick={() => fileInputRef.current?.click()}
+                    title="Subir imagen"
+                    style={{ position: "absolute", right: 6, top: "50%", transform: "translateY(-50%)", width: 28, height: 28, display: "flex", alignItems: "center", justifyContent: "center", borderRadius: 5, background: "transparent", color: uploading ? "var(--color-text-faint)" : "var(--color-text-muted)", border: "none", cursor: uploading ? "not-allowed" : "pointer", transition: "background 0.1s, color 0.1s" }}
+                    onMouseEnter={(e) => { if (!uploading) { (e.currentTarget as HTMLElement).style.background = "var(--color-bg-card-elev)"; (e.currentTarget as HTMLElement).style.color = "var(--color-text-primary)"; } }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; (e.currentTarget as HTMLElement).style.color = "var(--color-text-muted)"; }}>
+              <UploadIcon size={14} />
+            </button>
+          </div>
+          {uploadError && <p style={{ margin: "4px 0 0", fontSize: 11, color: "#f87171" }}>{uploadError}</p>}
+          {imageUrl && (
+            <div className="mt-2 rounded-card overflow-hidden" style={{ border: "1px solid var(--color-border-std)" }}>
+              <img src={imageUrl} alt={t("submit.preview", lang)} className="w-full h-28 object-cover"
+                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+            </div>
+          )}
+        </F>
+      </div>
 
       {/* Country */}
       <F label={t("submit.field.country", lang)} required error={errors.country} errorMsg={requiredMsg}>
         <SearchableSelect
           value={country}
           onChange={(v) => { setCountry(v); clearError("country"); }}
-          options={COUNTRIES.map((c) => ({ value: c, label: c }))}
-          placeholder="—"
+          options={[{ value: "unknown", label: t("option.unknown", lang), dividerAfter: true }, ...COUNTRIES.map((c) => ({ value: c, label: c }))]}
+          placeholder={t("option.unspecified", lang)}
           hasError={!!errors.country}
           searchable
         />
       </F>
+
+      {/* Family (required when families exist) */}
+      {activeFamilies.length > 0 && (
+        <F label={t("submit.field.family", lang)} required error={errors.family} errorMsg={requiredMsg}>
+          <SearchableSelect
+            value={family}
+            onChange={(v) => { setFamily(v); clearError("family"); }}
+            options={activeFamilies.map(f => ({
+              value: f.key,
+              label: lang === "en" ? f.label_en : f.label_es,
+            }))}
+            placeholder={t("option.unspecified", lang)}
+            hasError={!!errors.family}
+            searchable
+          />
+        </F>
+      )}
 
       {/* Climate · Duration · Tags — 3 columns */}
       <div className="grid grid-cols-3 gap-3">
@@ -301,8 +345,8 @@ export default function PlantSubmitForm({ lang }: Props) {
           <SearchableSelect
             value={climate}
             onChange={(v) => { setClimate(v as Climate); clearError("climate"); }}
-            options={CLIMATES}
-            placeholder="—"
+            options={climateOptions}
+            placeholder={t("option.unspecified", lang)}
             hasError={!!errors.climate}
           />
         </F>
@@ -310,13 +354,13 @@ export default function PlantSubmitForm({ lang }: Props) {
           <SearchableSelect
             value={duration}
             onChange={(v) => { setDuration(v as Duration); clearError("duration"); }}
-            options={DURATIONS}
-            placeholder="—"
+            options={durationOptions}
+            placeholder={t("option.unspecified", lang)}
             hasError={!!errors.duration}
           />
         </F>
         <F label={t("submit.field.tags", lang)}>
-          <TagsDropdown value={tags} onChange={setTags} options={TAGS} />
+          <TagsDropdown value={tags} onChange={setTags} placeholder={t("option.unspecified", lang)} options={activeTags.map(t => ({ key: t.key, label: lang === "en" ? t.label_en : t.label_es }))} />
         </F>
       </div>
 
@@ -335,9 +379,6 @@ export default function PlantSubmitForm({ lang }: Props) {
         >
           {loading ? t("submit.btn.loading", lang) : t("submit.btn", lang)}
         </button>
-        <p className="text-xs mt-2" style={{ color: "var(--color-text-subtle)" }}>
-          {t("submit.note", lang)}
-        </p>
       </div>
     </form>
   );
@@ -376,7 +417,7 @@ function F({
 
 // ── Custom select (single) ─────────────────────────────────────────────────
 
-interface SelectOption { value: string; label: string; }
+interface SelectOption { value: string; label: string; dividerAfter?: boolean; }
 
 function SearchableSelect({
   value, onChange, options, placeholder, hasError, searchable = false,
@@ -449,30 +490,34 @@ function SearchableSelect({
           )}
           <div style={{ maxHeight: 200, overflowY: "auto" }}>
             {filtered.map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => { onChange(opt.value); close(); }}
-                style={{
-                  width: "100%", textAlign: "left", padding: "8px 12px",
-                  fontSize: 13, cursor: "pointer",
-                  background: opt.value === value ? "rgba(82,183,136,0.08)" : "transparent",
-                  color: opt.value === value ? "var(--color-accent-hover)" : "var(--color-text-primary)",
-                  border: "none", display: "flex", alignItems: "center", justifyContent: "space-between",
-                  fontFeatureSettings: "'cv01','ss03'",
-                }}
-                onMouseEnter={(e) => {
-                  if (opt.value !== value)
-                    (e.currentTarget as HTMLElement).style.background = "var(--color-bg-card-hover)";
-                }}
-                onMouseLeave={(e) => {
-                  (e.currentTarget as HTMLElement).style.background =
-                    opt.value === value ? "rgba(82,183,136,0.08)" : "transparent";
-                }}
-              >
-                {opt.label}
-                {opt.value === value && <CheckIcon size={12} style={{ color: "var(--color-accent)", flexShrink: 0 }} />}
-              </button>
+              <div key={opt.value}>
+                <button
+                  type="button"
+                  onClick={() => { onChange(opt.value); close(); }}
+                  style={{
+                    width: "100%", textAlign: "left", padding: "8px 12px",
+                    fontSize: 13, cursor: "pointer",
+                    background: opt.value === value ? "rgba(82,183,136,0.08)" : "transparent",
+                    color: opt.value === value ? "var(--color-accent-hover)" : "var(--color-text-primary)",
+                    border: "none", display: "flex", alignItems: "center", justifyContent: "space-between",
+                    fontFeatureSettings: "'cv01','ss03'",
+                  }}
+                  onMouseEnter={(e) => {
+                    if (opt.value !== value)
+                      (e.currentTarget as HTMLElement).style.background = "var(--color-bg-card-hover)";
+                  }}
+                  onMouseLeave={(e) => {
+                    (e.currentTarget as HTMLElement).style.background =
+                      opt.value === value ? "rgba(82,183,136,0.08)" : "transparent";
+                  }}
+                >
+                  {opt.label}
+                  {opt.value === value && <CheckIcon size={12} style={{ color: "var(--color-accent)", flexShrink: 0 }} />}
+                </button>
+                {opt.dividerAfter && (
+                  <div style={{ height: 1, background: "var(--color-border-std)", margin: "4px 10px" }} />
+                )}
+              </div>
             ))}
             {filtered.length === 0 && (
               <p style={{ padding: "10px 12px", fontSize: 12, color: "var(--color-text-faint)", margin: 0 }}>
@@ -489,22 +534,23 @@ function SearchableSelect({
 // ── Tags dropdown (multi) ──────────────────────────────────────────────────
 
 function TagsDropdown({
-  value, onChange, options,
+  value, onChange, options, placeholder = "—",
 }: {
-  value: PlantTag[]; onChange: (v: PlantTag[]) => void; options: PlantTag[];
+  value: string[]; onChange: (v: string[]) => void; options: { key: string; label: string }[]; placeholder?: string;
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
   const ref = useOutsideClose(open, close);
 
-  const toggle = (tag: PlantTag) => {
+  const toggle = (tag: string) => {
     onChange(value.includes(tag) ? value.filter((t) => t !== tag) : [...value, tag]);
   };
 
+  const firstLabel = options.find(o => o.key === value[0])?.label ?? value[0];
   const label = value.length === 0
-    ? "—"
+    ? placeholder
     : value.length === 1
-      ? value[0]
+      ? firstLabel
       : `${value.length} selected`;
 
   return (
@@ -540,13 +586,13 @@ function TagsDropdown({
           animation: "dropdown-in 0.1s ease",
         }}>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 5 }}>
-            {options.map((tag) => {
-              const active = value.includes(tag);
+            {options.map(({ key, label: optLabel }) => {
+              const active = value.includes(key);
               return (
                 <button
-                  key={tag}
+                  key={key}
                   type="button"
-                  onClick={() => toggle(tag)}
+                  onClick={() => toggle(key)}
                   style={{
                     padding: "3px 10px", borderRadius: 999, fontSize: 11, fontWeight: 510,
                     cursor: "pointer", fontFeatureSettings: "'cv01','ss03'",
@@ -556,7 +602,7 @@ function TagsDropdown({
                     border: active ? "1px solid rgba(82,183,136,0.3)" : "1px solid var(--color-border-std)",
                   }}
                 >
-                  {tag}
+                  {optLabel}
                 </button>
               );
             })}

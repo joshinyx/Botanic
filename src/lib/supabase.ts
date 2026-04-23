@@ -22,7 +22,13 @@ export function createSupabaseServerClient(cookies: AstroCookies, request: Reque
       },
       setAll(cookiesToSet: { name: string; value: string; options: CookieOptions }[]) {
         cookiesToSet.forEach(({ name, value, options }) => {
-          cookies.set(name, value, options as Parameters<AstroCookies["set"]>[2]);
+          try {
+            cookies.set(name, value, options as Parameters<AstroCookies["set"]>[2]);
+          } catch {
+            // Response already sent — token refresh fires async after the page is
+            // committed. Safe to ignore: the refreshed token is stored server-side
+            // and the updated cookie will be written on the next request.
+          }
         });
       },
     },

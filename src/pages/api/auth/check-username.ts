@@ -8,7 +8,7 @@ export const GET: APIRoute = async ({ url }) => {
     return new Response(JSON.stringify({ available: false, error: "Username required" }), { status: 400 });
   }
 
-  if (!/^[a-z0-9_]{3,30}$/.test(username)) {
+  if (!/^(?!.*_{2})[a-z0-9_]{3,30}$/.test(username)) {
     return new Response(JSON.stringify({ available: false, error: "Invalid format" }), { status: 200 });
   }
 

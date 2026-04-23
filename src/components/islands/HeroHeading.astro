@@ -1,0 +1,31 @@
+---
+interface Props {
+  line1: string;
+  line2: string;
+}
+
+const { line1, line2 } = Astro.props;
+---
+
+<div style="text-align: center;">
+  <p style="font-size: clamp(0.85rem, 2.5vw, 1.1rem); font-weight: 400; letter-spacing: 0.2em; text-transform: uppercase; color: var(--color-text-muted); font-family: Inter Variable, sans-serif; font-feature-settings: 'cv01','ss03'; margin-bottom: 8px;">
+    {line1}
+  </p>
+  <h1 class="hero-title">{line2}</h1>
+</div>
+
+<style is:global>
+  .hero-title {
+    font-family: "Lora Variable", Georgia, serif;
+    font-size: clamp(3.5rem, 10vw, 5.5rem);
+    font-weight: 400;
+    font-style: italic;
+    line-height: 1;
+    letter-spacing: -0.01em;
+    color: var(--color-text-primary);
+    text-shadow:
+      0 0 40px rgba(82, 183, 136, 0.45),
+      0 0 80px rgba(82, 183, 136, 0.2);
+    margin: 0;
+  }
+</style>
