@@ -59,7 +59,7 @@ async function paintQR(
   const logo = await getLogo();
   if (!logo) return;
 
-  const ls = Math.round(size * 0.19);
+  const ls = Math.round(size * 0.26);
   const cx = x + size / 2;
   const cy = y + size / 2;
 
