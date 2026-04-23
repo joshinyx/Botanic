@@ -12,4 +12,9 @@ export default defineConfig({
       applyBaseStyles: false,
     }),
   ],
+  vite: {
+    server: {
+      allowedHosts: ["app.joshiny.dev"],
+    },
+  },
 });
