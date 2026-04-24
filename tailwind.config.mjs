@@ -1,6 +1,21 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ["./src/**/*.{astro,html,js,jsx,md,mdx,svelte,ts,tsx,vue}"],
+  safelist: [
+    // Clases dinámicas usadas en el perfil de planta y componentes
+    'bg-[#4ade80]', 'bg-[#fbbf24]', 'bg-[#60a5fa]', 'bg-[#c084fc]', 'bg-[#94a3b8]', 'bg-[#fb923c]',
+    'bg-[rgba(74,222,128,0.12)]', 'bg-[rgba(251,191,36,0.12)]', 'bg-[rgba(96,165,250,0.12)]',
+    'bg-[rgba(192,132,252,0.12)]', 'bg-[rgba(148,163,184,0.12)]', 'bg-[rgba(251,146,60,0.12)]',
+    'text-[#4ade80]', 'text-[#fbbf24]', 'text-[#60a5fa]', 'text-[#c084fc]', 'text-[#94a3b8]', 'text-[#fb923c]',
+    'border', 'border-std', 'border-subtle', 'bg-card', 'bg-card-elev', 'bg-panel', 'bg-surface',
+    'text-primary', 'text-secondary', 'text-muted', 'text-subtle', 'text-faint',
+    'rounded-full', 'rounded-panel', 'rounded-card', 'rounded-sm',
+    'px-2.5', 'py-1', 'py-2', 'p-4', 'p-5', 'gap-1.5', 'gap-2', 'gap-4', 'gap-5', 'gap-6', 'gap-8',
+    'text-xs', 'text-[11px]', 'text-[15px]', 'mb-0.5', 'mb-2', 'mb-3', 'mb-4', 'mb-8',
+    'uppercase', 'tracking-widest', 'capitalize', 'inline-flex', 'flex', 'items-center', 'items-start', 'items-between', 'justify-between',
+    'object-cover', 'shrink-0', 'block', 'min-w-0', 'w-6', 'h-6', 'max-w-[1200px]', 'mx-auto', 'px-6', 'py-10',
+    'grid', 'grid-cols-1', 'md:grid-cols-[minmax(0,360px)_1fr]', 'lg:grid-cols-[1fr_340px]'
+  ],
   darkMode: ["class", '[data-theme="dark"]'],
   theme: {
     extend: {
