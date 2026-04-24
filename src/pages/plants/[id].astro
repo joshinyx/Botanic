@@ -3,6 +3,8 @@ import Base from "@/layouts/Base.astro";
 import Header from "@/components/layout/Header.astro";
 import QRStudio from "@/components/islands/QRStudio";
 import PlantImageCarousel from "@/components/islands/PlantImageCarousel";
+import { Image } from "astro:assets";
+import { UserMention } from "@/components/islands/UserHoverCard";
 import { createSupabaseServerClient } from "@/lib/supabase";
 import { generateQRDataURL } from "@/lib/qr";
 import { getLang, t } from "@/lib/i18n";
@@ -16,14 +18,16 @@ const supabase = createSupabaseServerClient(Astro.cookies, Astro.request);
 
 const { data: plant } = await supabase
   .from("plants")
-  .select("*, users(id, username, name)")
+  .select("*, users(id, username, name, avatar_url, bio, followers_count, following_count, social_links)")
   .eq("id", id)
   .eq("status", "approved")
   .maybeSingle();
 
 if (!plant) return Astro.redirect("/");
 
-type PlantFull = Plant & { users: Pick<UserProfile, "username" | "name"> | null };
+type PlantFull = Plant & {
+  users: Pick<UserProfile, "username" | "name" | "avatar_url" | "bio" | "followers_count" | "following_count" | "social_links"> | null;
+};
 const p = plant as PlantFull;
 
 const baseUrl = import.meta.env.PUBLIC_BASE_URL;
@@ -51,39 +55,54 @@ const climateBg: Record<string, string> = {
       {t("plant.back", lang)}
     </a>
 
-    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-8">
-      <!-- Left: image + info -->
-      <div class="space-y-6">
-        <!-- Carousel (flower first, plant second) — constrained to 50% width to match previous 2-photo grid -->
-        <div style="width: calc(50% - 6px)">
-          <PlantImageCarousel
-            client:load
-            images={[
-              ...(p.flower_url ? [{ src: p.flower_url, alt: `${p.name} — ${t("plant.flower", lang)}` }] : []),
-              { src: p.image_url, alt: p.name },
-            ]}
-          />
-        </div>
+    <!-- Top: image + info side by side -->
+    <div class="grid grid-cols-1 md:grid-cols-[minmax(0,360px)_1fr] gap-8 items-start mb-8">
 
+      <!-- Carousel -->
+      <PlantImageCarousel
+        client:load
+        images={[
+          ...(p.flower_url ? [{ src: p.flower_url, alt: `${p.name} — ${t("plant.flower", lang)}` }] : []),
+          { src: p.image_url, alt: p.name },
+        ]}
+      />
+
+      <!-- Info panel -->
+      <div class="flex flex-col gap-5">
         <div>
-          <h1 class="text-[32px] leading-tight mb-3"
-              style="font-family:'Lora Variable', Georgia, serif; font-weight:600; letter-spacing:-0.3px; color:var(--color-text-primary)">
+          <h1 class="plant-title leading-tight mb-3"
+              style="font-family:'Lora Variable', Georgia, serif; font-weight:600; color:var(--color-text-primary)">
             {p.name}
           </h1>
-          <div class="flex flex-wrap items-center gap-2 mb-5">
-            <span class="px-2.5 py-1 rounded-full text-xs"
+          <div class="flex flex-wrap items-center gap-2 mb-4">
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
                   style={`background:${climateBg[p.climate] ?? "var(--color-bg-card-elev)"}; color:${climateColors[p.climate] ?? "var(--color-text-muted)"}; font-weight:510`}>
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M10 13.5a4 4 0 1 0 4 0v-8.5a2 2 0 0 0 -4 0v8.5"/>
+                <line x1="10" y1="9" x2="14" y2="9"/>
+              </svg>
               {p.climate}
             </span>
-            <span class="px-2.5 py-1 rounded-full text-xs"
+            <span class="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs"
                   style="background:var(--color-bg-card-elev); color:var(--color-text-muted); font-weight:510">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="9"/>
+                <polyline points="12 7 12 12 15 15"/>
+              </svg>
               {p.duration}
             </span>
-            <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">
+            <span class="inline-flex items-center gap-1 text-xs" style="font-weight:510; color:var(--color-text-subtle)">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"
+                   stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 11a3 3 0 1 0 6 0 3 3 0 0 0-6 0"/>
+                <path d="M17.657 16.657 13.414 20.9a2 2 0 0 1-2.827 0l-4.244-4.243a8 8 0 1 1 11.314 0z"/>
+              </svg>
               {p.origin_country}
             </span>
           </div>
-          <p class="text-[16px] leading-relaxed" style="color:var(--color-text-secondary)">
+          <p class="text-[15px] leading-relaxed" style="color:var(--color-text-secondary)">
             {p.description}
           </p>
         </div>
@@ -106,72 +125,95 @@ const climateBg: Record<string, string> = {
         )}
 
         {p.users && (
-          <div class="flex items-center gap-3 p-4 rounded-card"
-               style="background:var(--color-bg-card); border:1px solid var(--color-border-subtle)">
-            <div class="w-8 h-8 rounded-full flex items-center justify-center shrink-0"
-                 style="background:rgba(58,125,94,0.15); border:1px solid rgba(58,125,94,0.25)">
-              <span class="text-xs" style="font-weight:590; color:#52b788">
-                {p.users.name.charAt(0).toUpperCase()}
-              </span>
-            </div>
-            <div>
-              <p class="text-xs" style="color:var(--color-text-subtle)">{t("plant.submittedBy", lang)}</p>
-              <a href={`/user/${p.users.username}`} class="text-sm transition-colors"
-                 style="font-weight:510; color:var(--color-text-secondary)">
-                @{p.users.username}
-              </a>
-            </div>
+          <div class="flex items-center gap-2">
+            {p.users.avatar_url
+              ? <Image src={p.users.avatar_url} alt={p.users.name} width={28} height={28}
+                       class="w-6 h-6 rounded-full object-cover shrink-0"
+                       style="border:1px solid rgba(58,125,94,0.3)" />
+              : <div class="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                     style="background:rgba(58,125,94,0.15); border:1px solid rgba(58,125,94,0.25); font-size:10px; font-weight:590; color:#52b788">
+                  {p.users.name.charAt(0).toUpperCase()}
+                </div>
+            }
+            <span class="text-xs" style="color:var(--color-text-subtle)">{t("plant.submittedBy", lang)}</span>
+            <UserMention
+              client:load
+              placement="down"
+              user={{
+                username: p.users.username,
+                name: p.users.name,
+                bio: p.users.bio ?? null,
+                avatar_url: p.users.avatar_url ?? null,
+                followers_count: p.users.followers_count ?? 0,
+                following_count: p.users.following_count ?? 0,
+                social_links: p.users.social_links ?? null,
+              }}
+            />
           </div>
         )}
       </div>
+    </div>
 
-      <!-- Right: details + QR -->
-      <div class="space-y-4">
-        <!-- Details table -->
-        <div class="rounded-panel p-5 space-y-3"
-             style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
-          <p class="text-xs uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
-            {t("plant.details", lang)}
-          </p>
-          {[
-            { label: t("plant.origin",   lang), value: p.origin_country },
-            { label: t("plant.climate",  lang), value: p.climate },
-            { label: t("plant.duration", lang), value: p.duration },
-          ].map(({ label, value }) => (
-            <div class="flex items-center justify-between py-2 border-b"
-                 style="border-color:var(--color-border-subtle)">
-              <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{label}</span>
-              <span class="text-xs capitalize" style="font-weight:510; color:var(--color-text-secondary)">{value}</span>
-            </div>
-          ))}
-          <div class="flex items-center justify-between py-2">
-            <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{t("plant.added", lang)}</span>
-            <span class="text-xs" style="font-weight:510; color:var(--color-text-secondary)">
-              {new Date(p.created_at).toLocaleDateString(lang === "es" ? "es-ES" : "en-US", {
-                year: "numeric", month: "short", day: "numeric",
-              })}
-            </span>
+    <!-- Bottom: details table + QR -->
+    <div class="grid grid-cols-1 lg:grid-cols-[1fr_340px] gap-6">
+      <!-- Details table -->
+      <div class="rounded-panel p-5 space-y-3"
+           style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
+        <p class="text-xs uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
+          {t("plant.details", lang)}
+        </p>
+        {[
+          { label: t("plant.origin",   lang), value: p.origin_country },
+          { label: t("plant.climate",  lang), value: p.climate },
+          { label: t("plant.duration", lang), value: p.duration },
+          ...(p.family ? [{ label: t("plant.family", lang), value: p.family }] : []),
+        ].map(({ label, value }) => (
+          <div class="flex items-center justify-between py-2 border-b"
+               style="border-color:var(--color-border-subtle)">
+            <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{label}</span>
+            <span class="text-xs capitalize" style="font-weight:510; color:var(--color-text-secondary)">{value}</span>
           </div>
+        ))}
+        <div class="flex items-center justify-between py-2">
+          <span class="text-xs" style="font-weight:510; color:var(--color-text-subtle)">{t("plant.added", lang)}</span>
+          <span class="text-xs" style="font-weight:510; color:var(--color-text-secondary)">
+            {new Date(p.created_at).toLocaleDateString(lang === "es" ? "es-ES" : "en-US", {
+              year: "numeric", month: "short", day: "numeric",
+            })}
+          </span>
         </div>
+      </div>
 
-        <!-- QR compact -->
-        <div class="rounded-panel p-4" style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
-          <div class="flex items-center gap-4">
-            <div class="shrink-0 p-2 rounded-card" style="background:var(--color-bg-panel); border:1px solid var(--color-border-subtle)">
-              <img src={qrDataUrl} alt={`QR ${p.name}`} width="80" height="80" class="rounded-sm block" />
-            </div>
-            <div class="min-w-0">
-              <p class="text-xs mb-0.5 uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
-                {t("plant.qr.title", lang)}
-              </p>
-              <p class="text-[11px] mb-3 leading-relaxed" style="color:var(--color-text-muted)">
-                {t("plant.qr.scan", lang)}
-              </p>
-              <QRStudio client:load plantId={id} plantName={p.name} climate={p.climate} origin={p.origin_country} />
-            </div>
+      <!-- QR -->
+      <div class="rounded-panel p-4" style="background:var(--color-bg-card); border:1px solid var(--color-border-std)">
+        <div class="flex items-center gap-4">
+          <div class="shrink-0 p-2 rounded-card" style="background:var(--color-bg-panel); border:1px solid var(--color-border-subtle)">
+            <img src={qrDataUrl} alt={`QR ${p.name}`} width="80" height="80" class="rounded-sm block" />
+          </div>
+          <div class="min-w-0">
+            <p class="text-xs mb-0.5 uppercase tracking-widest" style="font-weight:510; color:var(--color-text-subtle)">
+              {t("plant.qr.title", lang)}
+            </p>
+            <p class="text-[11px] mb-3 leading-relaxed" style="color:var(--color-text-muted)">
+              {t("plant.qr.scan", lang)}
+            </p>
+            <QRStudio client:load plantId={id} plantName={p.name} climate={p.climate} origin={p.origin_country} />
           </div>
         </div>
       </div>
     </div>
   </main>
 </Base>
+
+<style>
+  .plant-title {
+    font-size: 28px;
+    letter-spacing: -0.3px;
+  }
+  @media (min-width: 768px) {
+    .plant-title {
+      font-size: 56px;
+      letter-spacing: -1px;
+    }
+  }
+</style>

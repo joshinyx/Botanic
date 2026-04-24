@@ -74,6 +74,7 @@
   * {
     font-feature-settings: "cv01", "ss03";
     border-color: var(--border);
+    outline-color: transparent;
     outline-color: color-mix(in oklch, var(--ring) 50%, transparent);
   }
 

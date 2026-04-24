@@ -38,7 +38,7 @@ const es = {
   "filter.authorPlaceholder": "@usuario",
   // Plant detail
   "plant.back": "Volver al catálogo",
-  "plant.submittedBy": "Enviado por",
+  "plant.submittedBy": "Subido por",
   "plant.tags": "Etiquetas",
   "plant.qr.title": "Código QR",
   "plant.qr.scan": "Escanea para abrir esta página",

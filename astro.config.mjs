@@ -6,6 +6,9 @@ import vercel from "@astrojs/vercel/serverless";
 export default defineConfig({
   output: "server",
   adapter: vercel(),
+  image: {
+    remotePatterns: [{ protocol: "https", hostname: "*.supabase.co" }],
+  },
   integrations: [
     react(),
     tailwind({

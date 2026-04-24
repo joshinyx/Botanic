@@ -1,4 +1,5 @@
 ---
+import { Image } from "astro:assets";
 import type { Plant, UserProfile } from "@/types";
 
 interface Props {
@@ -19,7 +20,7 @@ const u = plant.users;
      role="link"
      tabindex="0">
   <!-- Full-bleed image -->
-  <img src={plant.image_url} alt={plant.name} class="pc__img" loading="lazy" />
+  <Image src={plant.image_url} alt={plant.name} class="pc__img" width={600} height={800} loading="lazy" />
 
   <!-- Country pill -->
   <span class="pc__country" aria-hidden="true">
@@ -65,7 +66,7 @@ const u = plant.users;
           <div class="pc__pop-inner">
             <div class="pc__pop-head">
               {u.avatar_url
-                ? <img src={u.avatar_url} alt={u.name} class="pc__pop-avatar" />
+                ? <Image src={u.avatar_url} alt={u.name} class="pc__pop-avatar" width={88} height={88} />
                 : <div class="pc__pop-avatar-ph">{u.name.charAt(0).toUpperCase()}</div>
               }
               <div>

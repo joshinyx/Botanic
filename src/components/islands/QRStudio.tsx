@@ -89,6 +89,7 @@ async function renderLabel(
   url: string, name: string,
   dark: string, light: string, withLogo: boolean,
   climate?: string, origin?: string,
+  titleSize = 30, lang: "es" | "en" = "es",
 ) {
   const w = CW.label, h = CH.label, pad = 32;
   const qrSize = h - pad * 2;
@@ -120,19 +121,19 @@ async function renderLabel(
   ctx.stroke();
   ctx.restore();
 
-  // "CATÁLOGO BOTÁNICO"
+  // header label
   ctx.save();
   ctx.globalAlpha = 0.42;
   ctx.fillStyle = dark;
   ctx.font = "500 12px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "left";
-  ctx.fillText("CATÁLOGO  BOTÁNICO", tx, midY - 46);
+  ctx.fillText(lang === "es" ? "CATÁLOGO  BOTÁNICO" : "BOTANIC  CATALOG", tx, midY - 46);
   ctx.restore();
 
   // plant name
   ctx.save();
   ctx.fillStyle = dark;
-  ctx.font = "bold 30px Georgia, 'Times New Roman', serif";
+  ctx.font = `bold ${titleSize}px Georgia, 'Times New Roman', serif`;
   ctx.textAlign = "left";
   const maxW = w - tx - pad;
   let dn = name;
@@ -176,6 +177,7 @@ async function renderBotanical(
   url: string, name: string,
   dark: string, light: string, withLogo: boolean,
   climate?: string, origin?: string,
+  titleSize = 34, lang: "es" | "en" = "es",
 ) {
   const w = CW.botanical, h = CH.botanical;
   const qrSize = 280;
@@ -204,34 +206,37 @@ async function renderBotanical(
   ctx.fillRect(40, 46, w - 80, 0.5);
   ctx.restore();
 
-  // "CATÁLOGO BOTÁNICO"
+  // header label
   ctx.save();
   ctx.globalAlpha = 0.55;
   ctx.fillStyle = dark;
   ctx.font = "600 11px system-ui, -apple-system, sans-serif";
   ctx.textAlign = "center";
-  ctx.fillText("CATÁLOGO  BOTÁNICO", w / 2, 68);
+  ctx.fillText(lang === "es" ? "CATÁLOGO  BOTÁNICO" : "BOTANIC  CATALOG", w / 2, 68);
   ctx.restore();
 
-  // plant name — detect one-line vs two-line
+  // plant name — detect one-line vs two-line using the actual titleSize font
+  const twoLineSize = Math.round(titleSize * 0.8);
   ctx.save();
   ctx.fillStyle = dark;
   ctx.textAlign = "center";
   const maxNameW = w - 60;
+  ctx.font = `bold ${titleSize}px Georgia, 'Times New Roman', serif`;
   const twoLine = ctx.measureText(name).width > maxNameW;
   let afterNameY: number;
 
   if (!twoLine) {
-    ctx.font = "bold 34px Georgia, 'Times New Roman', serif";
-    ctx.fillText(name, w / 2, 116);
-    afterNameY = 134;
+    const nameY = 82 + titleSize;
+    ctx.fillText(name, w / 2, nameY);
+    afterNameY = nameY + Math.max(16, Math.round(titleSize * 0.5));
   } else {
-    ctx.font = "bold 27px Georgia, 'Times New Roman', serif";
+    ctx.font = `bold ${twoLineSize}px Georgia, 'Times New Roman', serif`;
+    const nameY = 82 + twoLineSize;
     const words = name.split(" ");
     const mid = Math.ceil(words.length / 2);
-    ctx.fillText(words.slice(0, mid).join(" "), w / 2, 107);
-    ctx.fillText(words.slice(mid).join(" "), w / 2, 141);
-    afterNameY = 158;
+    ctx.fillText(words.slice(0, mid).join(" "), w / 2, nameY);
+    ctx.fillText(words.slice(mid).join(" "), w / 2, nameY + twoLineSize + 8);
+    afterNameY = nameY + twoLineSize + 8 + 16;
   }
   ctx.restore();
 
@@ -287,6 +292,9 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
   const [dark, setDark] = useState(PRESETS[0].dark);
   const [light, setLight] = useState(PRESETS[0].light);
   const [withLogo, setWithLogo] = useState(true);
+  const [withMeta, setWithMeta] = useState(true);
+  const [titleSize, setTitleSize] = useState(30);
+  const [qrLang, setQrLang] = useState<"es" | "en">("es");
   const [downloading, setDownloading] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -298,13 +306,15 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
     canvas.width  = CW[template];
     canvas.height = CH[template];
     const url = `${window.location.origin}/plants/${plantId}`;
+    const effClimate = withMeta ? climate : undefined;
+    const effOrigin  = withMeta ? origin  : undefined;
     if (template === "plain")
       await renderPlain(ctx, url, dark, light, withLogo);
     else if (template === "label")
-      await renderLabel(ctx, url, plantName, dark, light, withLogo, climate, origin);
+      await renderLabel(ctx, url, plantName, dark, light, withLogo, effClimate, effOrigin, titleSize, qrLang);
     else
-      await renderBotanical(ctx, url, plantName, dark, light, withLogo, climate, origin);
-  }, [plantId, plantName, template, dark, light, withLogo, climate, origin]);
+      await renderBotanical(ctx, url, plantName, dark, light, withLogo, effClimate, effOrigin, titleSize, qrLang);
+  }, [plantId, plantName, template, dark, light, withLogo, withMeta, titleSize, qrLang, climate, origin]);
 
   useEffect(() => { if (open) render(); }, [open, render]);
 
@@ -383,11 +393,35 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
                 </h2>
                 <p className="text-xs mt-0.5" style={{ color: "var(--color-text-faint)" }}>{plantName}</p>
               </div>
-              <button onClick={() => setOpen(false)} style={{ cursor: "pointer", border: "none", background: "none" }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2">
-                  <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
-                </svg>
-              </button>
+              <div className="flex items-center gap-3">
+                {/* ES / EN toggle */}
+                <div style={{
+                  display: "flex", borderRadius: 6, overflow: "hidden",
+                  border: "1px solid var(--color-border-std)",
+                }}>
+                  {(["es", "en"] as const).map((l) => (
+                    <button
+                      key={l}
+                      onClick={() => setQrLang(l)}
+                      style={{
+                        padding: "3px 10px", fontSize: 11, fontWeight: 510,
+                        cursor: "pointer", border: "none", letterSpacing: "0.06em",
+                        textTransform: "uppercase",
+                        background: qrLang === l ? "rgba(96,165,250,0.15)" : "transparent",
+                        color: qrLang === l ? "#60a5fa" : "var(--color-text-muted)",
+                        transition: "background 0.15s, color 0.15s",
+                      }}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
+                <button onClick={() => setOpen(false)} style={{ cursor: "pointer", border: "none", background: "none" }}>
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-text-muted)" strokeWidth="2">
+                    <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
             </div>
 
             {/* body */}
@@ -465,6 +499,54 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
                   </div>
                 </div>
 
+                {/* title size — only for text templates */}
+                {template !== "plain" && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-[11px] uppercase tracking-widest"
+                         style={{ fontWeight: 510, color: "var(--color-text-subtle)" }}>Tamaño del título</p>
+                      <span className="text-[11px]" style={{ color: "var(--color-text-muted)", fontVariantNumeric: "tabular-nums" }}>
+                        {titleSize}px
+                      </span>
+                    </div>
+                    <input
+                      type="range" min={16} max={52} step={1}
+                      value={titleSize}
+                      onChange={(e) => setTitleSize(Number(e.target.value))}
+                      style={{ width: "100%", accentColor: "#60a5fa", cursor: "pointer" }}
+                    />
+                  </div>
+                )}
+
+                {/* climate / origin toggle — only for text templates */}
+                {template !== "plain" && (
+                  <div>
+                    <p className="text-[11px] uppercase tracking-widest mb-2"
+                       style={{ fontWeight: 510, color: "var(--color-text-subtle)" }}>Clima y origen</p>
+                    <label className="flex items-center gap-3" style={{ cursor: "pointer" }}>
+                      <button
+                        role="switch" aria-checked={withMeta}
+                        onClick={() => setWithMeta(!withMeta)}
+                        className="relative w-9 h-5 rounded-full transition-colors shrink-0"
+                        style={{
+                          cursor: "pointer", border: "none",
+                          background: withMeta ? "rgba(96,165,250,0.75)" : "rgba(255,255,255,0.1)",
+                        }}
+                      >
+                        <span className="absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white"
+                              style={{
+                                transform: withMeta ? "translateX(16px)" : "translateX(0)",
+                                transition: "transform 0.18s cubic-bezier(0.16,1,0.3,1)",
+                                boxShadow: "0 1px 3px rgba(0,0,0,0.3)",
+                              }} />
+                      </button>
+                      <span className="text-xs" style={{ fontWeight: 510, color: "var(--color-text-secondary)" }}>
+                        Mostrar clima y origen
+                      </span>
+                    </label>
+                  </div>
+                )}
+
                 {/* logo toggle */}
                 <div>
                   <p className="text-[11px] uppercase tracking-widest mb-2"
@@ -490,9 +572,6 @@ export default function QRStudio({ plantId, plantName, climate, origin }: Props)
                       Logo en el centro del QR
                     </span>
                   </label>
-                  <p className="text-[11px] mt-1.5" style={{ color: "var(--color-text-faint)" }}>
-                    Usa corrección de errores H — escaneo garantizado
-                  </p>
                 </div>
               </div>
 
